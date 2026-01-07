@@ -32,3 +32,8 @@ regex = "1"
 thiserror = "2"
 async-stream = "0.3"
 pin-project-lite = "0.2"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
