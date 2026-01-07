@@ -1080,7 +1080,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "perplexity-web-mcp"
+name = "perplexity-web-api-mcp"
 version = "0.1.0"
 dependencies = [
  "perplexity-web-api",

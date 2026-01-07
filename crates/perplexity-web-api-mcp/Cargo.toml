@@ -1,5 +1,5 @@
 [package]
-name = "perplexity-web-mcp"
+name = "perplexity-web-api-mcp"
 version = "0.1.0"
 edition = "2021"
 description = "MCP server exposing Perplexity AI search, research, and reasoning tools"
@@ -9,7 +9,7 @@ keywords = ["perplexity", "mcp", "ai", "search"]
 categories = ["api-bindings", "asynchronous"]
 
 [[bin]]
-name = "perplexity-web-mcp"
+name = "perplexity-web-api-mcp"
 path = "src/main.rs"
 
 [dependencies]

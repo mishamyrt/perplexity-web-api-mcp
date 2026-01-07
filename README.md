@@ -1,15 +1,28 @@
-# Perplexity AI Web API MCP Server
+# Perplexity Web API MCP Server
 
 MCP (Model Context Protocol) server that exposes Perplexity AI search, research, and reasoning capabilities as tools.
 
 ## Requirements
+
+### Supported Platforms
+
+- macOS
+- Linux
+- ~~Windows~~ (not supported yet)
+
+### Supported Architectures
+
+- x86_64
+- aarch64
+
+### User Tokens
 
 This server requires a Perplexity AI account. You need to extract two authentication tokens from your browser cookies:
 
 - `SESSION_TOKEN` - The `next-auth.session-token` cookie value
 - `CSRF_TOKEN` - The `next-auth.csrf-token` cookie value
 
-### Getting Your Tokens
+#### Getting Your Tokens
 
 1. Log in to [perplexity.ai](https://www.perplexity.ai) in your browser
 2. Open Developer Tools (F12 or right-click → Inspect)
