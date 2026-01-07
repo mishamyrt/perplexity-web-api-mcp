@@ -1,0 +1,26 @@
+[package]
+name = "perplexity-web-api"
+publish = false
+version = "0.0.0"
+edition = "2021"
+description = "Async Rust client library for Perplexity AI Web API"
+license = "MIT"
+repository = "https://github.com/mishamyrt/perplexity-web-api-rs"
+keywords = ["perplexity", "ai", "api", "async"]
+categories = ["api-bindings", "asynchronous"]
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+bytes = { workspace = true }
+futures-util = { workspace = true }
+mime_guess = { workspace = true }
+regex = { workspace = true }
+thiserror = { workspace = true }
+async-stream = { workspace = true }
+pin-project-lite = { workspace = true }
+rquest = { workspace = true }
+rquest-util = { workspace = true }
+
