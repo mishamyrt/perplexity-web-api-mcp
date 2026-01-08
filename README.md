@@ -29,6 +29,8 @@ MCP (Model Context Protocol) server that exposes Perplexity AI search, research,
 - x86_64
 - aarch64
 
+## Configuration
+
 ### User Tokens
 
 This server requires a Perplexity AI account. You need to extract two authentication tokens from your browser cookies:
@@ -45,29 +47,30 @@ This server requires a Perplexity AI account. You need to extract two authentica
    - `next-auth.session-token` → use as `PERPLEXITY_SESSION_TOKEN`
    - `next-auth.csrf-token` → use as `PERPLEXITY_CSRF_TOKEN`
 
-## Usage
-
-### Running the Server
+### Claude Code
 
 ```bash
-PERPLEXITY_SESSION_TOKEN="your-session-token" PERPLEXITY_CSRF_TOKEN="your-csrf-token" perlexity-web-mcp
+claude mcp add perplexity --env PERPLEXITY_SESSION_TOKEN="your-session-token" --env PERPLEXITY_CSRF_TOKEN="your-csrf-token" -- npx -y perplexity-web-api-mcp
 ```
 
-### Testing with MCP Inspector
+### Cursor, Claude Desktop & Windsurf
 
-```bash
-PERPLEXITY_SESSION_TOKEN="..." PERPLEXITY_CSRF_TOKEN="..." npx @modelcontextprotocol/inspector cargo run -p perlexity-web-mcp
-```
+I recommend using the one-click install badge at the top of this README for Cursor.
 
-### Claude Desktop Configuration
+For manual setup, all these clients use the same `mcpServers` format:
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+| Client | Config File |
+|--------|-------------|
+| Cursor | `~/.cursor/mcp.json` |
+| Claude Desktop | `claude_desktop_config.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
 
 ```json
 {
   "mcpServers": {
     "perplexity": {
-      "command": "perlexity-web-mcp",
+      "command": "npx",
+      "args": ["-y", "perplexity-web-api-mcp"],
       "env": {
         "PERPLEXITY_SESSION_TOKEN": "your-session-token",
         "PERPLEXITY_CSRF_TOKEN": "your-csrf-token"
@@ -76,6 +79,36 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   }
 }
 ```
+
+### VS Code
+
+I recommend using the one-click install badge at the top of this README for VS Code, or for manual setup, add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "perplexity": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "perplexity-web-api-mcp"],
+      "env": {
+        "PERPLEXITY_SESSION_TOKEN": "your-session-token",
+        "PERPLEXITY_CSRF_TOKEN": "your-csrf-token"
+      }
+    }
+  }
+}
+```
+
+### Codex
+
+```bash
+codex mcp add perplexity --env PERPLEXITY_SESSION_TOKEN="your-session-token" --env PERPLEXITY_CSRF_TOKEN="your-csrf-token" -- npx -y perplexity-web-api-mcp
+```
+
+### Other MCP Clients
+
+Most clients can be manually configured to use the `mcpServers` wrapper in their configuration file (like Cursor). If your client doesn't work, check its documentation for the correct wrapper format.
 
 ## Available Tools
 
