@@ -74,7 +74,7 @@ impl PerplexityServer {
         params: PerplexityRequest,
         mode: &str,
     ) -> Result<PerplexityResponse, McpError> {
-        let mut request = SearchRequest::new(&params.query).mode(mode);
+        let mut request = SearchRequest::new(&params.query).mode(mode).incognito(true);
 
         if let Some(sources) = params.sources
             && !sources.is_empty()
