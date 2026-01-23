@@ -1,10 +1,10 @@
 use crate::error::{Error, Result};
-use crate::types::SearchEvent;
+use crate::types::{SearchEvent, SearchWebResult};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
 /// Keys that are extracted from the raw JSON and stored in dedicated fields.
-const EXTRACTED_KEYS: &[&str] = &["answer", "chunks", "backend_uuid", "attachments"];
+const EXTRACTED_KEYS: &[&str] = &["answer", "backend_uuid", "attachments"];
 
 /// Parses an SSE event JSON string into a SearchEvent.
 pub(crate) fn parse_sse_event(json_str: &str) -> Result<SearchEvent> {
@@ -14,8 +14,8 @@ pub(crate) fn parse_sse_event(json_str: &str) -> Result<SearchEvent> {
     // Try to parse the "text" field if it contains nested JSON
     parse_nested_text_field(&mut content);
 
-    // Extract answer and chunks from the FINAL step or fall back to top-level
-    let (answer, chunks) = extract_answer_and_chunks(&content);
+    // Extract answer and web_results from the FINAL step or fall back to top-level
+    let (answer, web_results) = extract_answer_and_web_results(&content);
 
     // Extract other known fields
     let backend_uuid = extract_string(&content, "backend_uuid");
@@ -24,7 +24,7 @@ pub(crate) fn parse_sse_event(json_str: &str) -> Result<SearchEvent> {
     // Build raw map excluding extracted keys
     let raw = build_raw_map(content);
 
-    Ok(SearchEvent { answer, chunks, backend_uuid, attachments, raw })
+    Ok(SearchEvent { answer, web_results, backend_uuid, attachments, raw })
 }
 
 /// If the "text" field is a JSON string, parse it and replace the field with the parsed value.
@@ -42,27 +42,28 @@ fn parse_nested_text_field(content: &mut Map<String, Value>) {
     }
 }
 
-/// Extracts answer and chunks from the event content.
+/// Extracts answer and web_results from the event content.
 ///
 /// First tries to find them in a FINAL step within the "text" field,
-/// then falls back to top-level "answer" and "chunks" fields.
-fn extract_answer_and_chunks(content: &Map<String, Value>) -> (Option<String>, Vec<Value>) {
+/// then falls back to top-level "answer" field with empty web_results.
+fn extract_answer_and_web_results(
+    content: &Map<String, Value>,
+) -> (Option<String>, Vec<SearchWebResult>) {
     // Try to extract from FINAL step in text field
-    if let Some((answer, chunks)) = extract_from_final_step(content) {
-        return (answer, chunks);
+    if let Some((answer, web_results)) = extract_from_final_step(content) {
+        return (answer, web_results);
     }
 
-    // Fall back to top-level fields
+    // Fall back to top-level answer field (no web_results available at top level)
     let answer = extract_string(content, "answer");
-    let chunks = content.get("chunks").and_then(|v| v.as_array()).cloned().unwrap_or_default();
 
-    (answer, chunks)
+    (answer, Vec::new())
 }
 
-/// Extracts answer and chunks from a FINAL step in the text field.
+/// Extracts answer and web_results from a FINAL step in the text field.
 fn extract_from_final_step(
     content: &Map<String, Value>,
-) -> Option<(Option<String>, Vec<Value>)> {
+) -> Option<(Option<String>, Vec<SearchWebResult>)> {
     let text = content.get("text")?;
     let steps = text.as_array()?;
 
@@ -76,11 +77,23 @@ fn extract_from_final_step(
     let answer_data: Value = serde_json::from_str(answer_str).ok()?;
 
     let answer = answer_data.get("answer").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let web_results = answer_data
+        .get("web_results")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|v| extract_web_result(&v))
+        .collect();
 
-    let chunks =
-        answer_data.get("chunks").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    Some((answer, web_results))
+}
 
-    Some((answer, chunks))
+fn extract_web_result(value: &Value) -> Option<SearchWebResult> {
+    let name = value.get("name").and_then(|v| v.as_str()).map(|s| s.to_string())?;
+    let url = value.get("url").and_then(|v| v.as_str()).map(|s| s.to_string())?;
+    let snippet = value.get("snippet").and_then(|v| v.as_str()).map(|s| s.to_string())?;
+    Some(SearchWebResult { name, url, snippet })
 }
 
 /// Extracts a string value from the content map.
@@ -108,18 +121,18 @@ mod tests {
 
     #[test]
     fn test_parse_simple_event() {
-        let json = r#"{"answer": "Hello world", "chunks": [{"title": "Source 1"}]}"#;
+        let json = r#"{"answer": "Hello world"}"#;
         let event = parse_sse_event(json).unwrap();
 
         assert_eq!(event.answer, Some("Hello world".to_string()));
-        assert_eq!(event.chunks.len(), 1);
+        assert!(event.web_results.is_empty());
         assert!(event.backend_uuid.is_none());
         assert!(event.attachments.is_empty());
     }
 
     #[test]
     fn test_parse_event_with_backend_uuid() {
-        let json = r#"{"answer": "Test", "backend_uuid": "abc-123", "chunks": []}"#;
+        let json = r#"{"answer": "Test", "backend_uuid": "abc-123"}"#;
         let event = parse_sse_event(json).unwrap();
 
         assert_eq!(event.answer, Some("Test".to_string()));
@@ -128,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_parse_event_with_attachments() {
-        let json = r#"{"answer": "Test", "attachments": ["url1", "url2"], "chunks": []}"#;
+        let json = r#"{"answer": "Test", "attachments": ["url1", "url2"]}"#;
         let event = parse_sse_event(json).unwrap();
 
         assert_eq!(event.attachments, vec!["url1", "url2"]);
@@ -137,7 +150,7 @@ mod tests {
     #[test]
     fn test_parse_event_with_nested_text_json() {
         // Simulates the "text" field containing JSON string with steps
-        let inner_answer = r#"{"answer": "Nested answer", "chunks": [{"id": 1}]}"#;
+        let inner_answer = r#"{"answer": "Nested answer", "web_results": [{"name": "Source", "url": "https://example.com", "snippet": "Example"}]}"#;
         let text_content = serde_json::json!([
             {
                 "step_type": "SEARCH",
@@ -160,7 +173,10 @@ mod tests {
         let event = parse_sse_event(&json.to_string()).unwrap();
 
         assert_eq!(event.answer, Some("Nested answer".to_string()));
-        assert_eq!(event.chunks.len(), 1);
+        assert_eq!(event.web_results.len(), 1);
+        assert_eq!(event.web_results[0].name, "Source");
+        assert_eq!(event.web_results[0].url, "https://example.com");
+        assert_eq!(event.web_results[0].snippet, "Example");
         // The "text" field should be parsed and stored in raw
         assert!(event.raw.contains_key("text"));
         assert!(event.raw.contains_key("some_field"));
@@ -179,21 +195,19 @@ mod tests {
 
         let json = serde_json::json!({
             "text": text_str,
-            "answer": "Top level answer",
-            "chunks": [{"source": "web"}]
+            "answer": "Top level answer"
         });
 
         let event = parse_sse_event(&json.to_string()).unwrap();
 
         assert_eq!(event.answer, Some("Top level answer".to_string()));
-        assert_eq!(event.chunks.len(), 1);
+        assert!(event.web_results.is_empty());
     }
 
     #[test]
     fn test_parse_event_raw_excludes_extracted_keys() {
         let json = r#"{
             "answer": "Test",
-            "chunks": [],
             "backend_uuid": "uuid",
             "attachments": [],
             "extra_field": "should be in raw",
@@ -203,7 +217,6 @@ mod tests {
 
         // Extracted keys should not be in raw
         assert!(!event.raw.contains_key("answer"));
-        assert!(!event.raw.contains_key("chunks"));
         assert!(!event.raw.contains_key("backend_uuid"));
         assert!(!event.raw.contains_key("attachments"));
 
@@ -218,7 +231,7 @@ mod tests {
         let event = parse_sse_event(json).unwrap();
 
         assert!(event.answer.is_none());
-        assert!(event.chunks.is_empty());
+        assert!(event.web_results.is_empty());
         assert!(event.backend_uuid.is_none());
         assert!(event.attachments.is_empty());
     }

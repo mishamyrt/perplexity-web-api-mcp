@@ -1,20 +1,22 @@
 use crate::error::{Error, Result};
 use crate::parse::parse_sse_event;
 use crate::types::SearchEvent;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures_util::Stream;
+use memchr::memmem;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-const EVENT_MESSAGE_PREFIX: &str = "event: message\r\n";
-const EVENT_END_OF_STREAM_PREFIX: &str = "event: end_of_stream\r\n";
-const DATA_PREFIX: &str = "data: ";
+const EVENT_MESSAGE_PREFIX: &[u8] = b"event: message\r\n";
+const EVENT_END_OF_STREAM_PREFIX: &[u8] = b"event: end_of_stream\r\n";
+const DATA_PREFIX: &[u8] = b"data: ";
+const DELIMITER: &[u8] = b"\r\n\r\n";
 
 pin_project_lite::pin_project! {
     pub struct SseStream<S> {
         #[pin]
         inner: S,
-        buffer: String,
+        buffer: BytesMut,
         finished: bool,
     }
 }
@@ -24,7 +26,7 @@ where
     S: Stream<Item = std::result::Result<Bytes, rquest::Error>>,
 {
     pub fn new(inner: S) -> Self {
-        Self { inner, buffer: String::new(), finished: false }
+        Self { inner, buffer: BytesMut::new(), finished: false }
     }
 }
 
@@ -52,9 +54,7 @@ where
 
             match this.inner.as_mut().poll_next(cx) {
                 Poll::Ready(Some(Ok(chunk))) => {
-                    if let Ok(text) = std::str::from_utf8(&chunk) {
-                        this.buffer.push_str(text);
-                    }
+                    this.buffer.extend_from_slice(&chunk);
                 }
                 Poll::Ready(Some(Err(e))) => {
                     return Poll::Ready(Some(Err(Error::Http(e))));
@@ -74,22 +74,29 @@ where
 }
 
 #[allow(clippy::collapsible_if)]
-fn try_parse_event(buffer: &mut String, finished: &mut bool) -> Option<Result<SearchEvent>> {
-    let delimiter = "\r\n\r\n";
+fn try_parse_event(buffer: &mut BytesMut, finished: &mut bool) -> Option<Result<SearchEvent>> {
+    let finder = memmem::Finder::new(DELIMITER);
 
-    if let Some(pos) = buffer.find(delimiter) {
-        let event_str = buffer[..pos].to_string();
-        buffer.drain(..pos + delimiter.len());
+    if let Some(pos) = finder.find(buffer) {
+        let event_bytes = buffer.split_to(pos + DELIMITER.len());
+        let event_data = &event_bytes[..pos];
 
-        if event_str.starts_with(EVENT_END_OF_STREAM_PREFIX) {
+        // Check for end of stream event
+        if event_data.starts_with(EVENT_END_OF_STREAM_PREFIX) {
             *finished = true;
             return None;
         }
 
-        if let Some(after_event) = event_str.strip_prefix(EVENT_MESSAGE_PREFIX) {
-            if let Some(data_start) = after_event.find(DATA_PREFIX) {
-                let json_str = &after_event[data_start + DATA_PREFIX.len()..];
-                return Some(parse_sse_event(json_str));
+        // Check for message event
+        if event_data.starts_with(EVENT_MESSAGE_PREFIX) {
+            let after_event = &event_data[EVENT_MESSAGE_PREFIX.len()..];
+            if let Some(data_start) = memmem::find(after_event, DATA_PREFIX) {
+                let json_bytes = &after_event[data_start + DATA_PREFIX.len()..];
+                // Validate UTF-8 and parse
+                return match std::str::from_utf8(json_bytes) {
+                    Ok(json_str) => Some(parse_sse_event(json_str)),
+                    Err(_) => Some(Err(Error::InvalidUtf8)),
+                };
             }
         }
     }

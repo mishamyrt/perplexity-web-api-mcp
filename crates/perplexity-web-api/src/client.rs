@@ -11,18 +11,23 @@ use rquest::{Client as HttpClient, cookie::Jar};
 use rquest_util::Emulation;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use uuid::Uuid;
+
+/// Default request timeout (30 seconds).
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Builder for creating a configured [`Client`] instance.
 pub struct ClientBuilder {
     cookies: HashMap<String, String>,
     http_client: Option<HttpClient>,
+    timeout: Duration,
 }
 
 impl ClientBuilder {
     /// Creates a new builder with default settings.
     pub fn new() -> Self {
-        Self { cookies: HashMap::new(), http_client: None }
+        Self { cookies: HashMap::new(), http_client: None, timeout: DEFAULT_TIMEOUT }
     }
 
     /// Sets authentication cookies for the client.
@@ -41,18 +46,25 @@ impl ClientBuilder {
         self
     }
 
+    /// Sets the request timeout.
+    ///
+    /// Default is 30 seconds.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
     /// Builds the client and performs initial session warm-up.
     ///
     /// This mirrors the Python client's behavior of making an initial
     /// GET request to `/api/auth/session` to establish a session.
     pub async fn build(self) -> Result<Client> {
+        let timeout = self.timeout;
         let http = match self.http_client {
             Some(client) => client,
             None => {
                 let jar = Arc::new(Jar::default());
-                let url = API_BASE_URL
-                    .parse()
-                    .map_err(|_| Error::Validation("Invalid API base URL".to_string()))?;
+                let url = API_BASE_URL.parse().expect("Invalid API base URL");
 
                 for (name, value) in &self.cookies {
                     let cookie =
@@ -68,9 +80,14 @@ impl ClientBuilder {
             }
         };
 
-        http.get(format!("{}{}", API_BASE_URL, ENDPOINT_AUTH_SESSION)).send().await?;
+        let session_fut =
+            http.get(format!("{}{}", API_BASE_URL, ENDPOINT_AUTH_SESSION)).send();
+        tokio::time::timeout(timeout, session_fut)
+            .await
+            .map_err(|_| Error::Timeout(timeout))?
+            .map_err(Error::Http)?;
 
-        Ok(Client { http, has_cookies: !self.cookies.is_empty() })
+        Ok(Client { http, has_cookies: !self.cookies.is_empty(), timeout })
     }
 }
 
@@ -103,6 +120,7 @@ impl Default for ClientBuilder {
 pub struct Client {
     http: HttpClient,
     has_cookies: bool,
+    timeout: Duration,
 }
 
 impl Client {
@@ -130,7 +148,7 @@ impl Client {
 
         Ok(SearchResponse {
             answer: event.answer.clone(),
-            chunks: event.chunks.clone(),
+            web_results: event.web_results.clone(),
             follow_up: event.as_follow_up(),
             raw: serde_json::to_value(&event).map_err(Error::Json)?,
         })
@@ -149,7 +167,7 @@ impl Client {
         let mut attachments = Vec::new();
 
         for file in &request.files {
-            let url = upload_file(&self.http, file).await?;
+            let url = upload_file(&self.http, file, self.timeout).await?;
             attachments.push(url);
         }
 
@@ -157,45 +175,48 @@ impl Client {
             attachments.extend(follow_up.attachments.clone());
         }
 
-        let mode_str = match request.mode {
+        let mode_str: &'static str = match request.mode {
             SearchMode::Auto => "concise",
             _ => "copilot",
         };
 
         let model_pref = model_preference(request.mode, request.model).ok_or_else(|| {
-            Error::Validation(format!(
-                "Invalid model '{}' for mode '{}'",
-                request.model.map(|m| m.as_str()).unwrap_or("default"),
-                request.mode
-            ))
+            Error::InvalidModelForMode {
+                model: request.model.map(|m| m.as_str()).unwrap_or("default").to_string(),
+                mode: request.mode.to_string(),
+            }
         })?;
 
-        let sources_str: Vec<String> =
-            request.sources.iter().map(|s| s.as_str().to_string()).collect();
+        let sources_str: Vec<&'static str> =
+            request.sources.iter().map(|s| s.as_str()).collect();
 
         let payload = AskPayload {
-            query_str: request.query,
+            query_str: &request.query,
             params: AskParams {
                 attachments,
                 frontend_context_uuid: Uuid::new_v4().to_string(),
                 frontend_uuid: Uuid::new_v4().to_string(),
                 is_incognito: request.incognito,
-                language: request.language,
+                language: &request.language,
                 last_backend_uuid: request.follow_up.and_then(|f| f.backend_uuid),
-                mode: mode_str.to_string(),
-                model_preference: model_pref.to_string(),
-                source: "default".to_string(),
+                mode: mode_str,
+                model_preference: model_pref,
+                source: "default",
                 sources: sources_str,
-                version: API_VERSION.to_string(),
+                version: API_VERSION,
             },
         };
 
-        let response = self
+        let request_fut = self
             .http
             .post(format!("{}{}", API_BASE_URL, ENDPOINT_SSE_ASK))
             .json(&payload)
-            .send()
-            .await?
+            .send();
+
+        let response = tokio::time::timeout(self.timeout, request_fut)
+            .await
+            .map_err(|_| Error::Timeout(self.timeout))?
+            .map_err(Error::Http)?
             .error_for_status()
             .map_err(|e| Error::Server {
                 status: e.status().map(|s| s.as_u16()).unwrap_or(0),
@@ -209,9 +230,7 @@ impl Client {
         // Mode and sources are now validated at compile time via enums.
         // Only runtime validation needed is for file uploads requiring auth.
         if !request.files.is_empty() && !self.has_cookies {
-            return Err(Error::Validation(
-                "File uploads require authentication cookies".to_string(),
-            ));
+            return Err(Error::FileUploadRequiresAuth);
         }
 
         Ok(())

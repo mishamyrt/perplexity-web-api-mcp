@@ -34,14 +34,27 @@ fn parse_source(s: &str) -> Option<Source> {
     }
 }
 
+/// Web result information from search.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct WebResultInfo {
+    /// Name/title of the web result.
+    pub name: String,
+
+    /// URL of the web result.
+    pub url: String,
+
+    /// Snippet/excerpt from the web result.
+    pub snippet: String,
+}
+
 /// Response from Perplexity tools.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct PerplexityResponse {
     /// The generated answer text.
     pub answer: Option<String>,
 
-    /// Citation chunks/sources from the response.
-    pub chunks: Vec<serde_json::Value>,
+    /// Web search results/sources from the response.
+    pub web_results: Vec<WebResultInfo>,
 
     /// Context for making follow-up queries.
     pub follow_up: FollowUpInfo,
@@ -62,6 +75,14 @@ pub struct FollowUpInfo {
 pub struct PerplexityServer {
     client: Arc<Client>,
     tool_router: ToolRouter<Self>,
+}
+
+/// Converts a `PerplexityResponse` into a `CallToolResult`.
+fn response_to_tool_result(response: PerplexityResponse) -> Result<CallToolResult, McpError> {
+    let json = serde_json::to_string_pretty(&response).map_err(|e| {
+        McpError::internal_error(format!("JSON serialization error: {}", e), None)
+    })?;
+    Ok(CallToolResult::success(vec![Content::text(json)]))
 }
 
 impl PerplexityServer {
@@ -98,7 +119,11 @@ impl PerplexityServer {
 
         Ok(PerplexityResponse {
             answer: response.answer,
-            chunks: response.chunks,
+            web_results: response
+                .web_results
+                .into_iter()
+                .map(|r| WebResultInfo { name: r.name, url: r.url, snippet: r.snippet })
+                .collect(),
             follow_up: FollowUpInfo {
                 backend_uuid: response.follow_up.backend_uuid,
                 attachments: response.follow_up.attachments,
@@ -121,11 +146,7 @@ impl PerplexityServer {
         &self,
         Parameters(params): Parameters<PerplexityRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let response = self.do_search(params, SearchMode::Auto).await?;
-        let json = serde_json::to_string_pretty(&response).map_err(|e| {
-            McpError::internal_error(format!("JSON serialization error: {}", e), None)
-        })?;
-        Ok(CallToolResult::success(vec![Content::text(json)]))
+        response_to_tool_result(self.do_search(params, SearchMode::Auto).await?)
     }
 
     /// Deep, comprehensive research using Perplexity's sonar-deep-research model.
@@ -140,11 +161,7 @@ impl PerplexityServer {
         &self,
         Parameters(params): Parameters<PerplexityRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let response = self.do_search(params, SearchMode::DeepResearch).await?;
-        let json = serde_json::to_string_pretty(&response).map_err(|e| {
-            McpError::internal_error(format!("JSON serialization error: {}", e), None)
-        })?;
-        Ok(CallToolResult::success(vec![Content::text(json)]))
+        response_to_tool_result(self.do_search(params, SearchMode::DeepResearch).await?)
     }
 
     /// Advanced reasoning and problem-solving using Perplexity's sonar-reasoning-pro model.
@@ -159,11 +176,7 @@ impl PerplexityServer {
         &self,
         Parameters(params): Parameters<PerplexityRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let response = self.do_search(params, SearchMode::Reasoning).await?;
-        let json = serde_json::to_string_pretty(&response).map_err(|e| {
-            McpError::internal_error(format!("JSON serialization error: {}", e), None)
-        })?;
-        Ok(CallToolResult::success(vec![Content::text(json)]))
+        response_to_tool_result(self.do_search(params, SearchMode::Reasoning).await?)
     }
 }
 

@@ -1067,6 +1067,7 @@ dependencies = [
  "async-stream",
  "bytes",
  "futures-util",
+ "memchr",
  "mime_guess",
  "pin-project-lite",
  "regex",

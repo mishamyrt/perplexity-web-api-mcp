@@ -1,3 +1,4 @@
+use std::time::Duration;
 use thiserror::Error;
 
 /// All possible errors that can occur when using the Perplexity client.
@@ -11,21 +12,37 @@ pub enum Error {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    /// Invalid request parameters (mode, model, sources, etc.).
-    #[error("Validation error: {0}")]
-    Validation(String),
+    /// Request timed out.
+    #[error("Request timed out after {0:?}")]
+    Timeout(Duration),
 
-    /// File upload failed.
-    #[error("File upload error: {0}")]
-    Upload(String),
+    /// File uploads require authentication cookies.
+    #[error("File uploads require authentication cookies")]
+    FileUploadRequiresAuth,
 
-    /// SSE parsing error.
-    #[error("SSE parsing error: {0}")]
-    Sse(String),
+    /// Invalid model for the specified mode.
+    #[error("Invalid model '{model}' for mode '{mode}'")]
+    InvalidModelForMode { model: String, mode: String },
 
-    /// Response parsing error (e.g., missing expected fields).
-    #[error("Response parsing error: {0}")]
-    Parse(String),
+    /// Failed to get upload URL.
+    #[error("Failed to get upload URL: {0}")]
+    UploadUrlFailed(String),
+
+    /// S3 upload failed.
+    #[error("S3 upload failed: {0}")]
+    S3UploadFailed(String),
+
+    /// Missing secure_url in S3 response.
+    #[error("Missing secure_url in S3 response")]
+    MissingSecureUrl,
+
+    /// Invalid MIME type.
+    #[error("Invalid MIME type: {0}")]
+    InvalidMimeType(String),
+
+    /// Invalid UTF-8 in SSE stream.
+    #[error("Invalid UTF-8 in SSE stream")]
+    InvalidUtf8,
 
     /// Server returned an error response.
     #[error("Server error: {status} - {message}")]

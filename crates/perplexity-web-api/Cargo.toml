@@ -14,6 +14,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 bytes = { workspace = true }
+memchr = { workspace = true }
 futures-util = { workspace = true }
 mime_guess = { workspace = true }
 regex = { workspace = true }

@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -116,15 +117,15 @@ impl fmt::Display for Model {
 #[derive(Debug, Clone)]
 pub enum UploadFile {
     /// File contents as bytes with a filename.
-    Bytes { filename: String, data: Vec<u8> },
+    Binary { filename: String, data: Bytes },
     /// File contents as text with a filename.
     Text { filename: String, content: String },
 }
 
 impl UploadFile {
     /// Creates an `UploadFile` from bytes.
-    pub fn from_bytes(filename: impl Into<String>, data: impl Into<Vec<u8>>) -> Self {
-        Self::Bytes { filename: filename.into(), data: data.into() }
+    pub fn from_bytes(filename: impl Into<String>, data: impl Into<Bytes>) -> Self {
+        Self::Binary { filename: filename.into(), data: data.into() }
     }
 
     /// Creates an `UploadFile` from text content.
@@ -134,20 +135,20 @@ impl UploadFile {
 
     pub(crate) fn filename(&self) -> &str {
         match self {
-            Self::Bytes { filename, .. } | Self::Text { filename, .. } => filename,
+            Self::Binary { filename, .. } | Self::Text { filename, .. } => filename,
         }
     }
 
-    pub(crate) fn as_bytes(&self) -> &[u8] {
+    pub(crate) fn as_bytes(&self) -> Bytes {
         match self {
-            Self::Bytes { data, .. } => data,
-            Self::Text { content, .. } => content.as_bytes(),
+            Self::Binary { data, .. } => data.clone(),
+            Self::Text { content, .. } => Bytes::copy_from_slice(content.as_bytes()),
         }
     }
 
     pub(crate) fn len(&self) -> usize {
         match self {
-            Self::Bytes { data, .. } => data.len(),
+            Self::Binary { data, .. } => data.len(),
             Self::Text { content, .. } => content.len(),
         }
     }
@@ -260,9 +261,9 @@ pub struct SearchEvent {
     /// The extracted answer text, if available.
     #[serde(default)]
     pub answer: Option<String>,
-    /// Chunks/citations from the response, if available.
+    /// Web search results from the response, if available.
     #[serde(default)]
-    pub chunks: Vec<serde_json::Value>,
+    pub web_results: Vec<SearchWebResult>,
     /// Backend UUID for follow-up queries.
     #[serde(default)]
     pub backend_uuid: Option<String>,
@@ -284,13 +285,20 @@ impl SearchEvent {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchWebResult {
+    pub name: String,
+    pub url: String,
+    pub snippet: String,
+}
+
 /// The final response from a non-streaming search.
 #[derive(Debug, Clone)]
 pub struct SearchResponse {
     /// The final answer text.
     pub answer: Option<String>,
-    /// Chunks/citations from the response.
-    pub chunks: Vec<serde_json::Value>,
+    /// Web search results from the response.
+    pub web_results: Vec<SearchWebResult>,
     /// Context for making follow-up queries.
     pub follow_up: FollowUpContext,
     /// The last raw event from the stream.
@@ -298,25 +306,25 @@ pub struct SearchResponse {
 }
 
 #[derive(Serialize)]
-pub(crate) struct AskPayload {
-    pub query_str: String,
-    pub params: AskParams,
+pub(crate) struct AskPayload<'a> {
+    pub query_str: &'a str,
+    pub params: AskParams<'a>,
 }
 
 #[derive(Serialize)]
-pub(crate) struct AskParams {
+pub(crate) struct AskParams<'a> {
     pub attachments: Vec<String>,
     pub frontend_context_uuid: String,
     pub frontend_uuid: String,
     pub is_incognito: bool,
-    pub language: String,
+    pub language: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_backend_uuid: Option<String>,
-    pub mode: String,
-    pub model_preference: String,
-    pub source: String,
-    pub sources: Vec<String>,
-    pub version: String,
+    pub mode: &'static str,
+    pub model_preference: &'static str,
+    pub source: &'static str,
+    pub sources: Vec<&'static str>,
+    pub version: &'static str,
 }
 
 #[derive(Serialize)]
