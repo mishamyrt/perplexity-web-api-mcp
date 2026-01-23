@@ -147,8 +147,12 @@ All tools return a JSON response with:
 ```json
 {
   "answer": "The generated answer text...",
-  "chunks": [
-    // Citation/source chunks from Perplexity
+  "web_results": [
+    {
+      "name": "Source name",
+      "url": "https://example.com",
+      "snippet": "Source snippet"
+    }
   ],
   "follow_up": {
     "backend_uuid": "uuid-for-follow-up-queries",
