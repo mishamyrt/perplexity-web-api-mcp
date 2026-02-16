@@ -39,20 +39,15 @@ Simply extract the session tokens from your browser cookies, and you're ready to
 
 ## Configuration
 
-### User Tokens
+### Getting Your Tokens
 
 This server requires a Perplexity AI account. You need to extract two authentication tokens from your browser cookies:
-
-- `PERPLEXITY_SESSION_TOKEN` - The `next-auth.session-token` cookie value
-- `PERPLEXITY_CSRF_TOKEN` - The `next-auth.csrf-token` cookie value
-
-#### Getting Your Tokens
 
 1. Log in to [perplexity.ai](https://www.perplexity.ai) in your browser
 2. Open Developer Tools (F12 or right-click → Inspect)
 3. Go to Application → Cookies → `https://www.perplexity.ai`
 4. Copy the values of:
-   - `next-auth.session-token` → use as `PERPLEXITY_SESSION_TOKEN`
+   - `__Secure-next-auth.session-token` → use as `PERPLEXITY_SESSION_TOKEN`
    - `next-auth.csrf-token` → use as `PERPLEXITY_CSRF_TOKEN`
 
 ### Claude Code
