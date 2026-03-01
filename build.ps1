@@ -46,7 +46,7 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
 # Visual Studio Build Tools (MSVC)
 $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 if (Test-Path $vsWhere) {
-    $vsPath = & $vsWhere -latest -property installationPath 2>$null
+    $vsPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
     if (-not $vsPath) {
         Write-Host "ERROR: Visual Studio Build Tools with C++ workload not found." -ForegroundColor Red
         Write-Host "Install from: https://visualstudio.microsoft.com/visual-cpp-build-tools/" -ForegroundColor Yellow
@@ -122,7 +122,9 @@ if (-not $SkipDeps) {
         if (Test-Path $sevenZip) {
             Write-Host "Extracting LLVM with 7-Zip..." -ForegroundColor Cyan
             New-Item -ItemType Directory -Force -Path $LlvmDir | Out-Null
-            & $sevenZip x $llvmExe -o"$LlvmDir" -y | Out-Null
+            # Use a variable for the -o flag to handle paths with spaces correctly
+            $llvmOutputArg = "-o$LlvmDir"
+            & "$sevenZip" x "$llvmExe" $llvmOutputArg -y | Out-Null
         } else {
             Remove-Item $llvmExe -ErrorAction SilentlyContinue
             Write-Host "ERROR: 7-Zip is required to extract LLVM without admin privileges." -ForegroundColor Red
@@ -143,6 +145,14 @@ $env:CMAKE_GENERATOR = "Ninja"
 if (-not $SkipDeps) {
     $env:PATH = "$(Join-Path $CmakeDir 'bin');$(Join-Path $NasmDir '');$(Join-Path $NinjaDir '');$env:PATH"
     $env:LIBCLANG_PATH = Join-Path $LlvmDir "bin"
+
+    # Warn if any paths contain spaces, which can cause issues with some build tools
+    if ($env:LIBCLANG_PATH -match ' ') {
+        Write-Host "WARNING: LIBCLANG_PATH contains spaces: $($env:LIBCLANG_PATH)" -ForegroundColor Yellow
+        Write-Host "         If the build fails, set CARGO_HOME to a path without spaces," -ForegroundColor Yellow
+        Write-Host "         e.g. set CARGO_HOME=C:\Cargo in your environment variables." -ForegroundColor Yellow
+        Write-Host ""
+    }
 
     Write-Host ""
     Write-Host "Build environment:" -ForegroundColor Cyan
