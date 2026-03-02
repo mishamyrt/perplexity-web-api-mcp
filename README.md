@@ -28,14 +28,9 @@ Simply extract the session tokens from your browser cookies, and you're ready to
 
 ### Supported Platforms
 
-- macOS
-- Linux
+- macOS (arm64, x86_64)
+- Linux (x86_64, aarch64)
 - Windows (x86_64)
-
-### Supported Architectures
-
-- x86_64
-- aarch64
 
 ## Configuration
 
