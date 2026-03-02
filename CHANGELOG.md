@@ -2,16 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.1](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.4.0..v0.4.1) - 2026-03-02
+## [0.5.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.4.0..v0.5.0) - 2026-03-02
 
 ### 🚀 Features
 
-- Add `Cargo.toml` for the new `perplexity-web-api-mcp` package.
-- Add `perplexity-web-api-mcp` crate for the MCP server.
+- Add correct single handler
+- Add search model selection
+- Add reason model selection
+
+### 🐛 Bug Fixes
+
+- Use correct model names
+
+### 🚜 Refactor
+
+- Improve error handling, align constants
+- Avoid parsing outside api
+- Use single delimiter finder
+- Move model names to constants
+- Commonize auth usage
 
 ### 📚 Documentation
 
 - Align os/arch support
+- Fix npm link
 
 ## [0.4.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.3.1..v0.4.0) - 2026-02-17
 
