@@ -1,5 +1,5 @@
-use perplexity_web_api::{Client, SearchMode, SearchRequest, SearchResponse};
-use std::{collections::HashMap, time::Duration};
+use perplexity_web_api::{AuthCookies, Client, SearchMode, SearchRequest, SearchResponse};
+use std::time::Duration;
 
 const SESSION_TOKEN_ENV: &str = "PERPLEXITY_SESSION_TOKEN";
 const CSRF_TOKEN_ENV: &str = "PERPLEXITY_CSRF_TOKEN";
@@ -31,14 +31,11 @@ fn ensure_required_env_vars() {
     let _ = require_env(CSRF_TOKEN_ENV);
 }
 
-fn auth_cookies() -> HashMap<String, String> {
+fn auth_cookies() -> AuthCookies {
     let session_token = require_env(SESSION_TOKEN_ENV);
     let csrf_token = require_env(CSRF_TOKEN_ENV);
 
-    HashMap::from([
-        ("next-auth.session-token".to_string(), session_token),
-        ("next-auth.csrf-token".to_string(), csrf_token),
-    ])
+    AuthCookies::new(session_token, csrf_token)
 }
 
 fn assert_response_has_answer(response: &SearchResponse, context: &str) {

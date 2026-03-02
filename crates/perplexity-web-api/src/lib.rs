@@ -54,13 +54,10 @@
 //! For enhanced features (pro mode, file uploads), provide your Perplexity cookies:
 //!
 //! ```no_run
-//! use perplexity_web_api::Client;
-//! use std::collections::HashMap;
+//! use perplexity_web_api::{AuthCookies, Client};
 //!
 //! # async fn example() -> perplexity_web_api::Result<()> {
-//! let mut cookies = HashMap::new();
-//! cookies.insert("next-auth.csrf-token".to_string(), "your-token".to_string());
-//! cookies.insert("next-auth.session-token".to_string(), "your-session".to_string());
+//! let cookies = AuthCookies::new("your-session", "your-token");
 //!
 //! let client = Client::builder()
 //!     .cookies(cookies)
@@ -83,6 +80,7 @@
 //! - [`Source::Scholar`] - Academic papers and research
 //! - [`Source::Social`] - Social media content
 
+mod auth;
 mod client;
 mod config;
 mod error;
@@ -92,6 +90,7 @@ mod sse;
 mod types;
 mod upload;
 
+pub use auth::{AuthCookies, CSRF_TOKEN_COOKIE_NAME, SESSION_TOKEN_COOKIE_NAME};
 pub use client::{Client, ClientBuilder};
 pub use error::{Error, Result};
 pub use models::{ModelPreference, ReasonModel, SearchModel};

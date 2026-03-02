@@ -1,3 +1,4 @@
+use crate::auth::AuthCookies;
 use crate::config::{
     API_BASE_URL, API_MODE_CONCISE, API_MODE_COPILOT, API_VERSION, ENDPOINT_AUTH_SESSION,
     ENDPOINT_SSE_ASK,
@@ -12,7 +13,6 @@ use crate::upload::upload_file;
 use futures_util::{Stream, StreamExt};
 use rquest::{Client as HttpClient, cookie::Jar};
 use rquest_util::Emulation;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
@@ -22,7 +22,7 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Builder for creating a configured [`Client`] instance.
 pub struct ClientBuilder {
-    cookies: HashMap<String, String>,
+    cookies: Option<AuthCookies>,
     http_client: Option<HttpClient>,
     timeout: Duration,
 }
@@ -30,14 +30,14 @@ pub struct ClientBuilder {
 impl ClientBuilder {
     /// Creates a new builder with default settings.
     pub fn new() -> Self {
-        Self { cookies: HashMap::new(), http_client: None, timeout: DEFAULT_TIMEOUT }
+        Self { cookies: None, http_client: None, timeout: DEFAULT_TIMEOUT }
     }
 
     /// Sets authentication cookies for the client.
     ///
     /// Required for enhanced features like file uploads and pro/reasoning modes.
-    pub fn cookies(mut self, cookies: HashMap<String, String>) -> Self {
-        self.cookies = cookies;
+    pub fn cookies(mut self, cookies: AuthCookies) -> Self {
+        self.cookies = Some(cookies);
         self
     }
 
@@ -62,17 +62,21 @@ impl ClientBuilder {
     /// This mirrors the Python client's behavior of making an initial
     /// GET request to `/api/auth/session` to establish a session.
     pub async fn build(self) -> Result<Client> {
-        let timeout = self.timeout;
-        let http = match self.http_client {
+        let Self { cookies, http_client, timeout } = self;
+        let has_cookies = cookies.is_some();
+
+        let http = match http_client {
             Some(client) => client,
             None => {
                 let jar = Arc::new(Jar::default());
                 let url = API_BASE_URL.parse().expect("Invalid API base URL");
 
-                for (name, value) in &self.cookies {
-                    let cookie =
-                        format!("{}={}; Domain=www.perplexity.ai; Path=/", name, value);
-                    jar.add_cookie_str(&cookie, &url);
+                if let Some(auth_cookies) = &cookies {
+                    for (name, value) in auth_cookies.as_pairs() {
+                        let cookie =
+                            format!("{name}={value}; Domain=www.perplexity.ai; Path=/");
+                        jar.add_cookie_str(&cookie, &url);
+                    }
                 }
 
                 HttpClient::builder()
@@ -90,7 +94,7 @@ impl ClientBuilder {
             .map_err(|_| Error::Timeout(timeout))?
             .map_err(Error::SessionWarmup)?;
 
-        Ok(Client { http, has_cookies: !self.cookies.is_empty(), timeout })
+        Ok(Client { http, has_cookies, timeout })
     }
 }
 

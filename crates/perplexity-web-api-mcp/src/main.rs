@@ -2,9 +2,12 @@
 
 mod server;
 
-use perplexity_web_api::{Client, ReasonModel, SearchModel};
+use perplexity_web_api::{
+    AuthCookies, CSRF_TOKEN_COOKIE_NAME, Client, ReasonModel, SESSION_TOKEN_COOKIE_NAME,
+    SearchModel,
+};
 use rmcp::{ServiceExt, transport::stdio};
-use std::{collections::HashMap, env, env::VarError};
+use std::{env, env::VarError};
 use tracing_subscriber::{EnvFilter, fmt};
 
 use crate::server::PerplexityServer;
@@ -44,8 +47,8 @@ fn require_env(name: &str) -> Result<String, std::io::Error> {
              Usage:\n\
                PERPLEXITY_SESSION_TOKEN=<token> PERPLEXITY_CSRF_TOKEN=<token> perplexity-web-api-mcp\n\n\
              Required environment variables:\n\
-               PERPLEXITY_SESSION_TOKEN  - Perplexity session token (next-auth.session-token cookie)\n\
-               PERPLEXITY_CSRF_TOKEN     - Perplexity CSRF token (next-auth.csrf-token cookie)"
+               PERPLEXITY_SESSION_TOKEN  - Perplexity session token ({SESSION_TOKEN_COOKIE_NAME} cookie)\n\
+               PERPLEXITY_CSRF_TOKEN     - Perplexity CSRF token ({CSRF_TOKEN_COOKIE_NAME} cookie)"
         ))
     })
 }
@@ -93,10 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Starting Perplexity MCP server");
 
-    // Map env vars to Perplexity cookie names
-    let mut cookies = HashMap::new();
-    cookies.insert("next-auth.session-token".to_string(), session_token);
-    cookies.insert("next-auth.csrf-token".to_string(), csrf_token);
+    let cookies = AuthCookies::new(session_token, csrf_token);
 
     // Build the Perplexity client with authentication
     let client = Client::builder().cookies(cookies).build().await.map_err(|e| {

@@ -4,8 +4,7 @@
 //!
 //! Run with: `cargo run --example file_upload`
 
-use perplexity_web_api::{Client, SearchRequest, UploadFile};
-use std::collections::HashMap;
+use perplexity_web_api::{AuthCookies, Client, SearchRequest, UploadFile};
 
 #[tokio::main]
 async fn main() -> perplexity_web_api::Result<()> {
@@ -14,43 +13,13 @@ async fn main() -> perplexity_web_api::Result<()> {
     println!("See README for instructions on obtaining cookies.\n");
 
     // To use this example, provide your Perplexity cookies:
-    let cookies = HashMap::new();
-    // cookies.insert("next-auth.csrf-token".to_string(), "your-token".to_string());
-    // cookies.insert("next-auth.session-token".to_string(), "your-session".to_string());
+    let cookies = None::<AuthCookies>;
+    // let cookies = Some(AuthCookies::new("your-session", "your-token"));
 
-    if cookies.is_empty() {
-        println!("No cookies provided. Showing example code only.\n");
-        println!("Example code:");
-        println!("---");
-        println!(
-            r#"
-// With actual cookies:
-let mut cookies = HashMap::new();
-cookies.insert("next-auth.csrf-token".to_string(), "your-token".to_string());
-cookies.insert("next-auth.session-token".to_string(), "your-session".to_string());
-
-let client = Client::builder()
-    .cookies(cookies)
-    .build()
-    .await?;
-
-// Upload a text file
-let response = client.search(
-    SearchRequest::new("Summarize this document")
-        .file(UploadFile::from_text("document.txt", "Your document content here..."))
-).await?;
-
-// Upload bytes (e.g., PDF)
-let pdf_bytes = std::fs::read("report.pdf")?;
-let response = client.search(
-    SearchRequest::new("What are the key findings?")
-        .file(UploadFile::from_bytes("report.pdf", pdf_bytes))
-).await?;
-"#
-        );
-        println!("---");
+    let Some(cookies) = cookies else {
+        println!("No cookies provided, exiting.");
         return Ok(());
-    }
+    };
 
     // Actual implementation with cookies
     let client = Client::builder().cookies(cookies).build().await?;
