@@ -1,6 +1,15 @@
 VERSION := 0.4.0
 
-.PHONY: publish
+.PHONY: publish test-unit test-integration test
+
+test-unit:
+	@cargo test --workspace --lib
+
+test-e2e:
+	@cargo test -p perplexity-web-api --test integration -- --ignored --test-threads=1
+
+test: test-unit test-integration
+
 publish:
 	@perl -i \
 		-pe 's/version = "\d+\.\d+\.\d+"/version = "${VERSION}"/g' \
