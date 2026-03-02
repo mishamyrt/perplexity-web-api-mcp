@@ -1,6 +1,6 @@
 [package]
 name = "perplexity-web-api-mcp"
-version = "0.4.0"
+version = "0.4.1"
 description = "MCP server exposing Perplexity AI search, research, and reasoning tools"
 edition = { workspace = true }
 rust-version = { workspace = true }

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.4.0..v0.4.1) - 2026-03-02
+
+### 🚀 Features
+
+- Add `Cargo.toml` for the new `perplexity-web-api-mcp` package.
+- Add `perplexity-web-api-mcp` crate for the MCP server.
+
+### 📚 Documentation
+
+- Align os/arch support
+
 ## [0.4.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.3.1..v0.4.0) - 2026-02-17
 
 ### 🚀 Features
