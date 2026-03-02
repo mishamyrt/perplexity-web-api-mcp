@@ -5,12 +5,15 @@ use bytes::{Bytes, BytesMut};
 use futures_util::Stream;
 use memchr::memmem;
 use std::pin::Pin;
+use std::sync::LazyLock;
 use std::task::{Context, Poll};
 
 const EVENT_MESSAGE_PREFIX: &[u8] = b"event: message\r\n";
 const EVENT_END_OF_STREAM_PREFIX: &[u8] = b"event: end_of_stream\r\n";
 const DATA_PREFIX: &[u8] = b"data: ";
 const DELIMITER: &[u8] = b"\r\n\r\n";
+static DELIMITER_FINDER: LazyLock<memmem::Finder<'static>> =
+    LazyLock::new(|| memmem::Finder::new(DELIMITER));
 
 pin_project_lite::pin_project! {
     pub struct SseStream<S> {
@@ -57,7 +60,7 @@ where
                     this.buffer.extend_from_slice(&chunk);
                 }
                 Poll::Ready(Some(Err(e))) => {
-                    return Poll::Ready(Some(Err(Error::Http(e))));
+                    return Poll::Ready(Some(Err(Error::SearchRequest(e))));
                 }
                 Poll::Ready(None) => {
                     *this.finished = true;
@@ -75,9 +78,7 @@ where
 
 #[allow(clippy::collapsible_if)]
 fn try_parse_event(buffer: &mut BytesMut, finished: &mut bool) -> Option<Result<SearchEvent>> {
-    let finder = memmem::Finder::new(DELIMITER);
-
-    if let Some(pos) = finder.find(buffer) {
+    if let Some(pos) = DELIMITER_FINDER.find(buffer) {
         let event_bytes = buffer.split_to(pos + DELIMITER.len());
         let event_data = &event_bytes[..pos];
 
