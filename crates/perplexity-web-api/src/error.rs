@@ -32,10 +32,6 @@ pub enum Error {
     #[error("File uploads require authentication cookies")]
     FileUploadRequiresAuth,
 
-    /// Invalid model for the specified mode.
-    #[error("Invalid model '{model}' for mode '{mode}'")]
-    InvalidModelForMode { model: String, mode: String },
-
     /// Failed to get upload URL.
     #[error("Failed to get upload URL: {0}")]
     UploadUrlFailed(String),

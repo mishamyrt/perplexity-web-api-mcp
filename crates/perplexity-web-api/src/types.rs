@@ -1,8 +1,5 @@
-use crate::config::{
-    MODEL_NAME_CLAUDE45SONNET, MODEL_NAME_CLAUDE45SONNET_THINKING, MODEL_NAME_GEMINI30PRO,
-    MODEL_NAME_GPT52, MODEL_NAME_GPT52_THINKING, MODEL_NAME_GROK41,
-    MODEL_NAME_GROK41_REASONING, MODEL_NAME_KIMIK2THINKING, MODEL_NAME_SONAR,
-};
+use crate::models::{DEEP_RESEARCH_MODEL_PREFERENCE, ModelPreference};
+use crate::{ReasonModel, SearchModel};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -24,44 +21,14 @@ pub enum SearchMode {
 }
 
 impl SearchMode {
-    /// Returns the string representation used by the API.
-    pub fn as_str(&self) -> &'static str {
+    /// Returns the default model preference for this mode.
+    pub const fn default_preference(&self) -> &'static str {
         match self {
-            Self::Auto => "auto",
-            Self::Pro => "pro",
-            Self::Reasoning => "reasoning",
-            Self::DeepResearch => "deep research",
+            Self::Auto => SearchModel::Turbo.as_str(),
+            Self::Pro => SearchModel::SonarPro.as_str(),
+            Self::Reasoning => ReasonModel::SonarReasoning.as_str(),
+            Self::DeepResearch => DEEP_RESEARCH_MODEL_PREFERENCE,
         }
-    }
-}
-
-impl fmt::Display for SearchMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl FromStr for SearchMode {
-    type Err = String;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "auto" => Ok(Self::Auto),
-            "pro" => Ok(Self::Pro),
-            "reasoning" => Ok(Self::Reasoning),
-            "deep research" => Ok(Self::DeepResearch),
-            _ => Err(format!(
-                "unknown search mode '{s}', expected one of: auto, pro, reasoning, deep research"
-            )),
-        }
-    }
-}
-
-impl TryFrom<&str> for SearchMode {
-    type Error = String;
-
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        value.parse()
     }
 }
 
@@ -97,7 +64,7 @@ impl fmt::Display for Source {
 impl FromStr for Source {
     type Err = String;
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "web" => Ok(Self::Web),
             "scholar" => Ok(Self::Scholar),
@@ -110,94 +77,7 @@ impl FromStr for Source {
 impl TryFrom<&str> for Source {
     type Error = String;
 
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-/// Model selection for Pro and Reasoning modes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Model {
-    // Pro mode models
-    /// Sonar model (Pro mode).
-    Sonar,
-    /// GPT-5.2 model (Pro mode).
-    Gpt52,
-    /// Claude 4.5 Sonnet model (Pro mode).
-    Claude45Sonnet,
-    /// Grok 4.1 model (Pro mode).
-    Grok41,
-
-    // Reasoning mode models
-    /// GPT-5.2 with thinking capabilities (Reasoning mode).
-    Gpt52Thinking,
-    /// Claude 4.5 Sonnet with thinking capabilities (Reasoning mode).
-    Claude45SonnetThinking,
-    /// Gemini 3.0 Pro model (Reasoning mode).
-    Gemini30Pro,
-    /// Kimi K2 with thinking capabilities (Reasoning mode).
-    KimiK2Thinking,
-    /// Grok 4.1 with reasoning capabilities (Reasoning mode).
-    Grok41Reasoning,
-}
-
-impl Model {
-    /// Returns the user-facing string representation.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Sonar => MODEL_NAME_SONAR,
-            Self::Gpt52 => MODEL_NAME_GPT52,
-            Self::Claude45Sonnet => MODEL_NAME_CLAUDE45SONNET,
-            Self::Grok41 => MODEL_NAME_GROK41,
-            Self::Gpt52Thinking => MODEL_NAME_GPT52_THINKING,
-            Self::Claude45SonnetThinking => MODEL_NAME_CLAUDE45SONNET_THINKING,
-            Self::Gemini30Pro => MODEL_NAME_GEMINI30PRO,
-            Self::KimiK2Thinking => MODEL_NAME_KIMIK2THINKING,
-            Self::Grok41Reasoning => MODEL_NAME_GROK41_REASONING,
-        }
-    }
-}
-
-impl fmt::Display for Model {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl FromStr for Model {
-    type Err = String;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            MODEL_NAME_SONAR => Ok(Self::Sonar),
-            MODEL_NAME_GPT52 => Ok(Self::Gpt52),
-            MODEL_NAME_CLAUDE45SONNET => Ok(Self::Claude45Sonnet),
-            MODEL_NAME_GROK41 => Ok(Self::Grok41),
-            MODEL_NAME_GPT52_THINKING => Ok(Self::Gpt52Thinking),
-            MODEL_NAME_CLAUDE45SONNET_THINKING => Ok(Self::Claude45SonnetThinking),
-            MODEL_NAME_GEMINI30PRO => Ok(Self::Gemini30Pro),
-            MODEL_NAME_KIMIK2THINKING => Ok(Self::KimiK2Thinking),
-            MODEL_NAME_GROK41_REASONING => Ok(Self::Grok41Reasoning),
-            _ => Err(format!(
-                "unknown model '{s}', expected one of: {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                MODEL_NAME_SONAR,
-                MODEL_NAME_GPT52,
-                MODEL_NAME_CLAUDE45SONNET,
-                MODEL_NAME_GROK41,
-                MODEL_NAME_GPT52_THINKING,
-                MODEL_NAME_CLAUDE45SONNET_THINKING,
-                MODEL_NAME_GEMINI30PRO,
-                MODEL_NAME_KIMIK2THINKING,
-                MODEL_NAME_GROK41_REASONING
-            )),
-        }
-    }
-}
-
-impl TryFrom<&str> for Model {
-    type Error = String;
-
-    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         value.parse()
     }
 }
@@ -250,8 +130,8 @@ pub struct SearchRequest {
     pub query: String,
     /// Search mode: Auto, Pro, Reasoning, or DeepResearch.
     pub mode: SearchMode,
-    /// Optional model to use for the query.
-    pub model: Option<Model>,
+    /// Optional explicit model preference.
+    pub model_preference: Option<ModelPreference>,
     /// Information sources: Web, Scholar, Social.
     pub sources: Vec<Source>,
     /// Files to upload with the query.
@@ -270,7 +150,7 @@ impl SearchRequest {
         Self {
             query: query.into(),
             mode: SearchMode::Auto,
-            model: None,
+            model_preference: None,
             sources: vec![Source::Web],
             files: Vec::new(),
             language: "en-US".to_string(),
@@ -286,8 +166,8 @@ impl SearchRequest {
     }
 
     /// Sets the model to use.
-    pub fn model(mut self, model: Model) -> Self {
-        self.model = Some(model);
+    pub fn model(mut self, model: impl Into<ModelPreference>) -> Self {
+        self.model_preference = Some(model.into());
         self
     }
 

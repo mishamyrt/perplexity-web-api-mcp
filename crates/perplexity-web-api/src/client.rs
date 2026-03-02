@@ -1,6 +1,6 @@
 use crate::config::{
     API_BASE_URL, API_MODE_CONCISE, API_MODE_COPILOT, API_VERSION, ENDPOINT_AUTH_SESSION,
-    ENDPOINT_SSE_ASK, model_preference,
+    ENDPOINT_SSE_ASK,
 };
 use crate::error::{Error, Result};
 use crate::sse::SseStream;
@@ -182,12 +182,10 @@ impl Client {
             _ => API_MODE_COPILOT,
         };
 
-        let model_pref = model_preference(request.mode, request.model).ok_or_else(|| {
-            Error::InvalidModelForMode {
-                model: request.model.map(|m| m.as_str()).unwrap_or("default").to_string(),
-                mode: request.mode.to_string(),
-            }
-        })?;
+        let model_pref = request
+            .model_preference
+            .map(|preference| preference.as_str())
+            .unwrap_or_else(|| request.mode.default_preference());
 
         let sources_str: Vec<&'static str> =
             request.sources.iter().map(|s| s.as_str()).collect();

@@ -86,15 +86,16 @@
 mod client;
 mod config;
 mod error;
+mod models;
 mod parse;
 mod sse;
 mod types;
 mod upload;
 
 pub use client::{Client, ClientBuilder};
-pub use config::{VALID_SEARCH_MODELS, parse_search_model};
 pub use error::{Error, Result};
+pub use models::{ModelPreference, ReasonModel, SearchModel};
 pub use types::{
-    FollowUpContext, Model, SearchEvent, SearchMode, SearchRequest, SearchResponse,
-    SearchWebResult, Source, UploadFile,
+    FollowUpContext, SearchEvent, SearchMode, SearchRequest, SearchResponse, SearchWebResult,
+    Source, UploadFile,
 };

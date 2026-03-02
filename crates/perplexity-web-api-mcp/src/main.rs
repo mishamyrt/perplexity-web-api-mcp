@@ -2,7 +2,7 @@
 
 mod server;
 
-use perplexity_web_api::{Client, Model, parse_search_model};
+use perplexity_web_api::{Client, ReasonModel, SearchModel};
 use rmcp::{ServiceExt, transport::stdio};
 use std::{collections::HashMap, env, env::VarError};
 use tracing_subscriber::{EnvFilter, fmt};
@@ -51,7 +51,11 @@ fn require_env(name: &str) -> Result<String, std::io::Error> {
 }
 
 /// Reads an optional default model from environment.
-fn optional_model_env(name: &str) -> Result<Option<Model>, std::io::Error> {
+fn optional_model_env<T>(name: &str) -> Result<Option<T>, std::io::Error>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
     match env::var(name) {
         Ok(value) => {
             let trimmed = value.trim();
@@ -59,7 +63,7 @@ fn optional_model_env(name: &str) -> Result<Option<Model>, std::io::Error> {
                 return Ok(None);
             }
 
-            parse_search_model(trimmed).map(Some).map_err(|e| {
+            trimmed.parse::<T>().map(Some).map_err(|e| {
                 std::io::Error::other(format!("Invalid environment variable {name}: {e}"))
             })
         }
@@ -84,7 +88,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Read required environment variables
     let session_token = require_env("PERPLEXITY_SESSION_TOKEN")?;
     let csrf_token = require_env("PERPLEXITY_CSRF_TOKEN")?;
-    let default_model = optional_model_env("PERPLEXITY_DEFAULT_MODEL")?;
+    let default_search_model = optional_model_env::<SearchModel>("PERPLEXITY_SEARCH_MODEL")?;
+    let default_reason_model = optional_model_env::<ReasonModel>("PERPLEXITY_REASON_MODEL")?;
 
     tracing::info!("Starting Perplexity MCP server");
 
@@ -102,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Perplexity client initialized");
 
     // Create and start the MCP server
-    let server = PerplexityServer::new(client, default_model);
+    let server = PerplexityServer::new(client, default_search_model, default_reason_model);
 
     let service = server.serve(stdio()).await.inspect_err(|e| {
         tracing::error!("Server error: {:?}", e);

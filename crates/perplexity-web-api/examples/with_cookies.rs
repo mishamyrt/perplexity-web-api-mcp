@@ -2,7 +2,7 @@
 //!
 //! Run with: `cargo run --example with_cookies`
 
-use perplexity_web_api::{Client, Model, SearchMode, SearchRequest};
+use perplexity_web_api::{Client, SearchMode, SearchModel, SearchRequest};
 use std::collections::HashMap;
 
 #[tokio::main]
@@ -37,14 +37,14 @@ let client = Client::builder()
 let response = client.search(
     SearchRequest::new("Explain the implications of quantum supremacy")
         .mode(SearchMode::Pro)
-        .model(Model::Gpt52)
+        .model(SearchModel::Gpt52)
 ).await?;
 
 // 4. Use reasoning mode for complex analysis
 let response = client.search(
     SearchRequest::new("Compare the economic policies of keynesianism vs monetarism")
         .mode(SearchMode::Reasoning)
-        .model(Model::Claude45SonnetThinking)
+        .model(ReasonModel::Claude46SonnetThinking)
 ).await?;
 
 // 5. Use deep research for comprehensive topics
@@ -69,7 +69,7 @@ let response = client.search(
         .search(
             SearchRequest::new("Explain the technical challenges of achieving AGI")
                 .mode(SearchMode::Pro)
-                .model(Model::Gpt52),
+                .model(SearchModel::Gpt52),
         )
         .await?;
 

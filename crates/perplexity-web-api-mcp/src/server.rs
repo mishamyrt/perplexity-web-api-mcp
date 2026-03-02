@@ -1,5 +1,6 @@
 use perplexity_web_api::{
-    Client, Model, SearchMode, SearchRequest, SearchWebResult, Source, parse_search_model,
+    Client, ModelPreference, ReasonModel, SearchMode, SearchModel, SearchRequest,
+    SearchWebResult, Source,
 };
 use rmcp::{
     ErrorData as McpError, ServerHandler,
@@ -23,19 +24,6 @@ pub struct PerplexityRequest {
     /// Language code (ISO 639), e.g., "en-US". Defaults to "en-US".
     #[serde(default)]
     pub language: Option<String>,
-}
-
-/// Request parameters for perplexity_search.
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct PerplexitySearchRequest {
-    #[serde(flatten)]
-    pub common: PerplexityRequest,
-
-    /// Optional model to use for search.
-    ///
-    /// If not specified, the configured default model is used when set.
-    #[serde(default)]
-    pub model: Option<String>,
 }
 
 /// Response from Perplexity tools.
@@ -65,7 +53,8 @@ pub struct FollowUpInfo {
 #[derive(Clone)]
 pub struct PerplexityServer {
     client: Client,
-    default_model: Option<Model>,
+    search_model: Option<SearchModel>,
+    reason_model: Option<ReasonModel>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -79,8 +68,12 @@ fn response_to_tool_result(response: PerplexityResponse) -> Result<CallToolResul
 
 impl PerplexityServer {
     /// Creates a new server instance with the given Perplexity client.
-    pub fn new(client: Client, default_model: Option<Model>) -> Self {
-        Self { client, default_model, tool_router: Self::tool_router() }
+    pub fn new(
+        client: Client,
+        search_model: Option<SearchModel>,
+        reason_model: Option<ReasonModel>,
+    ) -> Self {
+        Self { client, search_model, reason_model, tool_router: Self::tool_router() }
     }
 
     /// Helper to execute a search with the given mode.
@@ -88,14 +81,9 @@ impl PerplexityServer {
         &self,
         params: PerplexityRequest,
         mode: SearchMode,
-        requested_model: Option<Model>,
+        model_preference: Option<ModelPreference>,
     ) -> Result<PerplexityResponse, McpError> {
-        let resolved_model = requested_model.or(if mode == SearchMode::Auto {
-            self.default_model
-        } else {
-            None
-        });
-        let effective_mode = if mode == SearchMode::Auto && resolved_model.is_some() {
+        let effective_mode = if mode == SearchMode::Auto && model_preference.is_some() {
             SearchMode::Pro
         } else {
             mode
@@ -104,8 +92,8 @@ impl PerplexityServer {
         let mut request =
             SearchRequest::new(&params.query).mode(effective_mode).incognito(true);
 
-        if let Some(model) = resolved_model {
-            request = request.model(model);
+        if let Some(model_preference) = model_preference {
+            request = request.model(model_preference);
         }
 
         if let Some(sources) = params.sources
@@ -141,7 +129,7 @@ impl PerplexityServer {
 
 #[tool_router]
 impl PerplexityServer {
-    /// Quick web search using Perplexity's turbo model or an optional Pro model.
+    /// Quick web search using Perplexity's default model or configured search model.
     ///
     /// Best for: Quick questions, everyday searches, and conversational queries
     /// that benefit from web context.
@@ -151,19 +139,15 @@ impl PerplexityServer {
     )]
     pub async fn perplexity_search(
         &self,
-        Parameters(params): Parameters<PerplexitySearchRequest>,
+        Parameters(params): Parameters<PerplexityRequest>,
     ) -> Result<CallToolResult, McpError> {
-        let requested_model = params
-            .model
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(parse_search_model)
-            .transpose()
-            .map_err(|e| McpError::internal_error(e, None))?;
-
         response_to_tool_result(
-            self.do_search(params.common, SearchMode::Auto, requested_model).await?,
+            self.do_search(
+                params,
+                SearchMode::Auto,
+                self.search_model.map(ModelPreference::from),
+            )
+            .await?,
         )
     }
 
@@ -194,7 +178,14 @@ impl PerplexityServer {
         &self,
         Parameters(params): Parameters<PerplexityRequest>,
     ) -> Result<CallToolResult, McpError> {
-        response_to_tool_result(self.do_search(params, SearchMode::Reasoning, None).await?)
+        response_to_tool_result(
+            self.do_search(
+                params,
+                SearchMode::Reasoning,
+                self.reason_model.map(ModelPreference::from),
+            )
+            .await?,
+        )
     }
 }
 
