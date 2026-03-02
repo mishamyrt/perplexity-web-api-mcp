@@ -4,9 +4,21 @@ use thiserror::Error;
 /// All possible errors that can occur when using the Perplexity client.
 #[derive(Error, Debug)]
 pub enum Error {
-    /// HTTP request failed.
-    #[error("HTTP error: {0}")]
-    Http(#[from] rquest::Error),
+    /// HTTP client initialization failed.
+    #[error("HTTP client initialization failed: {0}")]
+    HttpClientInit(#[source] rquest::Error),
+
+    /// Session warm-up request failed.
+    #[error("Session warmup failed: {0}")]
+    SessionWarmup(#[source] rquest::Error),
+
+    /// Search request failed.
+    #[error("Search request failed: {0}")]
+    SearchRequest(#[source] rquest::Error),
+
+    /// File upload request failed.
+    #[error("Upload request failed: {0}")]
+    UploadRequest(#[source] rquest::Error),
 
     /// JSON serialization or deserialization failed.
     #[error("JSON error: {0}")]

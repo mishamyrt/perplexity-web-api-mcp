@@ -1,10 +1,13 @@
 use crate::config::{
-    API_BASE_URL, API_VERSION, ENDPOINT_AUTH_SESSION, ENDPOINT_SSE_ASK, model_preference,
+    API_BASE_URL, API_MODE_CONCISE, API_MODE_COPILOT, API_VERSION, ENDPOINT_AUTH_SESSION,
+    ENDPOINT_SSE_ASK, model_preference,
 };
 use crate::error::{Error, Result};
 use crate::sse::SseStream;
 use crate::types::SearchMode;
-use crate::types::{AskParams, AskPayload, SearchEvent, SearchRequest, SearchResponse};
+use crate::types::{
+    AskParams, AskPayload, FollowUpContext, SearchEvent, SearchRequest, SearchResponse,
+};
 use crate::upload::upload_file;
 use futures_util::{Stream, StreamExt};
 use rquest::{Client as HttpClient, cookie::Jar};
@@ -76,7 +79,7 @@ impl ClientBuilder {
                     .emulation(Emulation::Chrome131)
                     .cookie_provider(jar)
                     .build()
-                    .map_err(Error::Http)?
+                    .map_err(Error::HttpClientInit)?
             }
         };
 
@@ -85,7 +88,7 @@ impl ClientBuilder {
         tokio::time::timeout(timeout, session_fut)
             .await
             .map_err(|_| Error::Timeout(timeout))?
-            .map_err(Error::Http)?;
+            .map_err(Error::SessionWarmup)?;
 
         Ok(Client { http, has_cookies: !self.cookies.is_empty(), timeout })
     }
@@ -117,6 +120,7 @@ impl Default for ClientBuilder {
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Clone)]
 pub struct Client {
     http: HttpClient,
     has_cookies: bool,
@@ -145,13 +149,11 @@ impl Client {
         }
 
         let event = last_event.ok_or(Error::UnexpectedEndOfStream)?;
+        let raw = serde_json::to_value(&event).map_err(Error::Json)?;
+        let SearchEvent { answer, web_results, backend_uuid, attachments, .. } = event;
+        let follow_up = FollowUpContext { backend_uuid, attachments };
 
-        Ok(SearchResponse {
-            answer: event.answer.clone(),
-            web_results: event.web_results.clone(),
-            follow_up: event.as_follow_up(),
-            raw: serde_json::to_value(&event).map_err(Error::Json)?,
-        })
+        Ok(SearchResponse { answer, web_results, follow_up, raw })
     }
 
     /// Performs a search query and returns a stream of events.
@@ -175,9 +177,9 @@ impl Client {
             attachments.extend(follow_up.attachments.clone());
         }
 
-        let mode_str: &'static str = match request.mode {
-            SearchMode::Auto => "concise",
-            _ => "copilot",
+        let mode_str = match request.mode {
+            SearchMode::Auto => API_MODE_CONCISE,
+            _ => API_MODE_COPILOT,
         };
 
         let model_pref = model_preference(request.mode, request.model).ok_or_else(|| {
@@ -216,7 +218,7 @@ impl Client {
         let response = tokio::time::timeout(self.timeout, request_fut)
             .await
             .map_err(|_| Error::Timeout(self.timeout))?
-            .map_err(Error::Http)?
+            .map_err(Error::SearchRequest)?
             .error_for_status()
             .map_err(|e| Error::Server {
                 status: e.status().map(|s| s.as_u16()).unwrap_or(0),

@@ -33,11 +33,12 @@ pub(crate) async fn upload_file(
     let upload_url_resp: UploadUrlResponse = tokio::time::timeout(timeout, upload_url_fut)
         .await
         .map_err(|_| Error::Timeout(timeout))?
-        .map_err(Error::Http)?
+        .map_err(Error::UploadRequest)?
         .error_for_status()
         .map_err(|e| Error::UploadUrlFailed(e.to_string()))?
         .json()
-        .await?;
+        .await
+        .map_err(Error::UploadRequest)?;
 
     let mut form = rquest::multipart::Form::new();
     for (key, value) in &upload_url_resp.fields {
@@ -55,12 +56,13 @@ pub(crate) async fn upload_file(
     let upload_resp = tokio::time::timeout(timeout, s3_upload_fut)
         .await
         .map_err(|_| Error::Timeout(timeout))?
-        .map_err(Error::Http)?
+        .map_err(Error::UploadRequest)?
         .error_for_status()
         .map_err(|e| Error::S3UploadFailed(e.to_string()))?;
 
     let uploaded_url = if upload_url_resp.s3_object_url.contains("image/upload") {
-        let s3_resp: S3UploadResponse = upload_resp.json().await?;
+        let s3_resp: S3UploadResponse =
+            upload_resp.json().await.map_err(Error::UploadRequest)?;
         let secure_url = s3_resp.secure_url.ok_or(Error::MissingSecureUrl)?;
 
         S3_URL_REGEX.replace(&secure_url, "/private/user_uploads/").to_string()
