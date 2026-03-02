@@ -11,21 +11,23 @@ async fn main() -> perplexity_web_api::Result<()> {
 
     // To use pro/reasoning modes, you need Perplexity account cookies.
     // See README for instructions on obtaining cookies.
-    let mut cookies = HashMap::new();
-    cookies.insert("next-auth.csrf-token".to_string(), "your-token".to_string());
-    cookies.insert("next-auth.session-token".to_string(), "your-session".to_string());
+    let session_token = std::env::var("PERPLEXITY_SESSION_TOKEN").ok();
+    let csrf_token = std::env::var("PERPLEXITY_CSRF_TOKEN").ok();
 
-    if cookies.is_empty() {
+    let (Some(session_token), Some(csrf_token)) = (session_token, csrf_token) else {
         println!("No cookies provided. Showing example code only.\n");
         println!(
             r#"Example code for authenticated usage:
 
-// 1. Get your cookies from Perplexity.ai (see README)
-let mut cookies = HashMap::new();
-cookies.insert("next-auth.csrf-token".to_string(), "your-token".to_string());
-cookies.insert("next-auth.session-token".to_string(), "your-session".to_string());
+// 1. Export your cookies from Perplexity.ai (see README)
+// export PERPLEXITY_SESSION_TOKEN="your-session-token"
+// export PERPLEXITY_CSRF_TOKEN="your-csrf-token"
 
 // 2. Create authenticated client
+let mut cookies = HashMap::new();
+cookies.insert("next-auth.session-token".to_string(), std::env::var("PERPLEXITY_SESSION_TOKEN")?);
+cookies.insert("next-auth.csrf-token".to_string(), std::env::var("PERPLEXITY_CSRF_TOKEN")?);
+
 let client = Client::builder()
     .cookies(cookies)
     .build()
@@ -53,7 +55,11 @@ let response = client.search(
 "#
         );
         return Ok(());
-    }
+    };
+
+    let mut cookies = HashMap::new();
+    cookies.insert("next-auth.session-token".to_string(), session_token);
+    cookies.insert("next-auth.csrf-token".to_string(), csrf_token);
 
     let client = Client::builder().cookies(cookies).build().await?;
 
