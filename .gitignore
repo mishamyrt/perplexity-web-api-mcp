@@ -1,2 +1,4 @@
 /target
 /.build-tools
+npm/node_modules/
+npm/npm-shrinkwrap.json
