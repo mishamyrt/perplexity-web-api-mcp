@@ -99,14 +99,12 @@ define_model_enum! {
         ProAuto => { name: "pro-auto", preference: "pplx_pro" },
         /// Sonar model.
         Sonar => { name: "sonar", preference: "experimental" },
-        /// Gemini 3.0 Flash model.
-        Gemini30Flash => { name: "gemini-3-flash", preference: "gemini30flash" },
-        /// GPT-5.2 model.
-        Gpt52 => { name: "gpt-5.2", preference: "gpt52" },
+        /// GPT-5.4 model.
+        Gpt54 => { name: "gpt-5.4", preference: "gpt54" },
         /// Claude 4.6 Sonnet model.
         Claude46Sonnet => { name: "claude-4.6-sonnet", preference: "claude46sonnet" },
-        /// Grok 4.1 model.
-        Grok41 => { name: "grok-4.1", preference: "grok41nonreasoning" },
+        /// Nemotron 3 Super
+        Nemotron3Super => { name: "nemotron-3-super", preference: "nv_nemotron_3_super" },
     }
 }
 
@@ -114,19 +112,11 @@ define_model_enum! {
     /// Model selection for `perplexity_reason`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum ReasonModel {
-        /// Sonar reasoning model.
-        SonarReasoning => { name: "sonar-reasoning", preference: "pplx_reasoning" },
-        /// Gemini 3.0 Flash with thinking capabilities.
-        Gemini30FlashThinking => { name: "gemini-3-flash-thinking", preference: "gemini30flash_high" },
         /// Gemini 3.1 Pro model.
         Gemini31Pro => { name: "gemini-3.1-pro", preference: "gemini31pro_high" },
-        /// GPT-5.2 with thinking capabilities.
-        Gpt52Thinking => { name: "gpt-5.2-thinking", preference: "gpt52_thinking" },
+        /// GPT-5.4 with thinking capabilities.
+        Gpt54Thinking => { name: "gpt-5.4-thinking", preference: "gpt54_thinking" },
         /// Claude 4.6 Sonnet with thinking capabilities.
         Claude46SonnetThinking => { name: "claude-4.6-sonnet-thinking", preference: "claude46sonnetthinking" },
-        /// Grok 4.1 with reasoning capabilities.
-        Grok41Reasoning => { name: "grok-4.1-reasoning", preference: "grok41reasoning" },
-        /// Kimi K2.5 model.
-        KimiK25Thinking => { name: "kimi-k2.5-thinking", preference: "kimik25thinking" },
     }
 }

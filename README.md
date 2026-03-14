@@ -63,19 +63,16 @@ This server requires a Perplexity AI account. You need to extract two authentica
 - `PERPLEXITY_SEARCH_MODEL` (optional, requires tokens): Model for `perplexity_search`.
   Valid values:
     - `turbo` (default for tokenless)
-    - `gemini-3-flash`
-    - `gpt-5.2`
+    - `pro-auto` (default for authenticated)
+    - `sonar`
+    - `gpt-5.4`
     - `claude-4.6-sonnet`
-    - `grok-4.1`
+    - `nemotron-3-super`
 - `PERPLEXITY_REASON_MODEL` (optional, requires tokens): Model for `perplexity_reason`.
   Valid values:
-    - `sonar-reasoning` (default)
-    - `gemini-3-flash-thinking`
-    - `gemini-3.1-pro`
-    - `gpt-5.2-thinking`
+    - `gemini-3.1-pro` (default)
+    - `gpt-5.4-thinking`
     - `claude-4.6-sonnet-thinking`
-    - `grok-4.1-reasoning`
-    - `kimi-k2.5-thinking`
 
 ### Claude Code
 

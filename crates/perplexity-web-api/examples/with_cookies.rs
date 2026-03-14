@@ -28,7 +28,7 @@ async fn main() -> perplexity_web_api::Result<()> {
         .search(
             SearchRequest::new("Explain the technical challenges of achieving AGI")
                 .mode(SearchMode::Pro)
-                .model(SearchModel::Gpt52),
+                .model(SearchModel::Gpt54),
         )
         .await?;
 
