@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.5.0..v0.6.1) - 2026-03-14
+
+### 🚀 Features
+
+- Add tokenless (unauthorized) mode support
+
+### 📚 Documentation
+
+- Add Zed setup guide
+
 ## [0.5.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.4.0..v0.5.0) - 2026-03-02
 
 ### 🚀 Features
