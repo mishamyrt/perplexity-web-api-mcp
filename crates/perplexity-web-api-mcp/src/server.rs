@@ -5,7 +5,7 @@ use perplexity_web_api::{
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
-    model::{CallToolResult, Content, ServerCapabilities, ServerInfo},
+    model::{CallToolResult, Content, Implementation, ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
 };
 use serde::{Deserialize, Serialize};
@@ -227,7 +227,10 @@ impl ServerHandler for PerplexityServer {
              Use perplexity_search for quick queries, perplexity_research for comprehensive analysis, \
              and perplexity_reason for logical problem-solving."
         };
+        let server_info =
+            Implementation::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_instructions(instructions)
+            .with_server_info(server_info)
     }
 }
