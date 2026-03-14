@@ -227,10 +227,7 @@ impl ServerHandler for PerplexityServer {
              Use perplexity_search for quick queries, perplexity_research for comprehensive analysis, \
              and perplexity_reason for logical problem-solving."
         };
-        ServerInfo {
-            instructions: Some(instructions.into()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            ..Default::default()
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_instructions(instructions)
     }
 }

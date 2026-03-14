@@ -33,7 +33,7 @@ mime_guess = "2.0.5"
 regex = "1.12.3"
 thiserror = "2.0.18"
 pin-project-lite = "0.2.17"
-rmcp = { version = "0.17.0", features = [
+rmcp = { version = "1.2.0", features = [
     "server",
     "macros",
     "transport-io",
