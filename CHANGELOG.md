@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.7.0..v0.8.0) - 2026-03-15
+
+### 🚀 Features
+
+- Split search/ask tools, adapt official tool instructions
+- Add annotations
+
+### 🐛 Bug Fixes
+
+- Provide correct mcp name and version
+
 ## [0.7.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.6.1..v0.7.0) - 2026-03-14
 
 ### 🚀 Features
