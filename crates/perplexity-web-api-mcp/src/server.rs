@@ -156,7 +156,14 @@ impl PerplexityServer {
                 Best for: finding specific URLs, checking recent news, verifying facts, discovering sources. \
                 Fastest and cheapest option. \
                 Returns formatted results (title, URL, snippet) — no AI synthesis. \
-                For AI-generated answers with citations, use perplexity_ask instead."
+                For AI-generated answers with citations, use perplexity_ask instead.",
+        annotations(
+            title = "Search the Web",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
     )]
     pub async fn perplexity_search(
         &self,
@@ -175,7 +182,14 @@ impl PerplexityServer {
                 Best for: quick factual questions, summaries, explanations, and general Q&A. \
                 Returns a text response with formatted results (title, URL, snippet). \
                 For in-depth multi-source research, use perplexity_research instead. \
-                For step-by-step reasoning and analysis, use perplexity_reason instead."
+                For step-by-step reasoning and analysis, use perplexity_reason instead.",
+        annotations(
+            title = "Ask Perplexity",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
     )]
     pub async fn perplexity_ask(
         &self,
@@ -198,7 +212,14 @@ impl PerplexityServer {
                 many sources. Returns a detailed response with numbered citations. \
                 Significantly slower than other tools (60+ seconds). \
                 For quick factual questions, use perplexity_ask instead. \
-                For logical analysis and reasoning, use perplexity_reason instead."
+                For logical analysis and reasoning, use perplexity_reason instead.",
+        annotations(
+            title = "Deep Research",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
     )]
     pub async fn perplexity_research(
         &self,
@@ -224,7 +245,14 @@ impl PerplexityServer {
                 Best for: math, logic, comparisons, complex arguments, and tasks requiring chain-of-thought. \
                 Returns a reasoned response with numbered citations. \
                 For quick factual questions, use perplexity_ask instead. \
-                For comprehensive multi-source research, use perplexity_research instead."
+                For comprehensive multi-source research, use perplexity_research instead.",
+        annotations(
+            title = "Advanced Reasoning",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
     )]
     pub async fn perplexity_reason(
         &self,
