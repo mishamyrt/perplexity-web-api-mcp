@@ -45,7 +45,11 @@ pub(crate) async fn upload_file(
         form = form.text(key.clone(), value.clone());
     }
 
-    let file_part = rquest::multipart::Part::bytes(file.as_bytes().to_vec())
+    let raw: Vec<u8> = match file {
+        UploadFile::Binary { data, .. } => data.to_vec(),
+        UploadFile::Text { content, .. } => content.as_bytes().to_vec(),
+    };
+    let file_part = rquest::multipart::Part::bytes(raw)
         .file_name(file.filename().to_string())
         .mime_str(&content_type)
         .map_err(|e| Error::InvalidMimeType(e.to_string()))?;
