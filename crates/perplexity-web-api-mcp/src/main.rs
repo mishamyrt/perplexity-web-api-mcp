@@ -132,7 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let client = builder.build().await.map_err(|e| {
-        eprintln!("Failed to create Perplexity client: {}", e);
+        tracing::error!("Failed to create Perplexity client: {}", e);
         e
     })?;
 
