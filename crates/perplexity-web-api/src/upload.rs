@@ -35,7 +35,7 @@ pub(crate) async fn upload_file(
         .map_err(|_| Error::Timeout(timeout))?
         .map_err(Error::UploadRequest)?
         .error_for_status()
-        .map_err(|e| Error::UploadUrlFailed(e.to_string()))?
+        .map_err(|e| Error::UploadUrlFailed(e))?
         .json()
         .await
         .map_err(Error::UploadRequest)?;
@@ -62,7 +62,7 @@ pub(crate) async fn upload_file(
         .map_err(|_| Error::Timeout(timeout))?
         .map_err(Error::UploadRequest)?
         .error_for_status()
-        .map_err(|e| Error::S3UploadFailed(e.to_string()))?;
+        .map_err(|e| Error::S3UploadFailed(e))?;
 
     let uploaded_url = if upload_url_resp.s3_object_url.contains("image/upload") {
         let s3_resp: S3UploadResponse =

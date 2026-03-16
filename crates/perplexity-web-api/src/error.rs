@@ -34,11 +34,11 @@ pub enum Error {
 
     /// Failed to get upload URL.
     #[error("Failed to get upload URL: {0}")]
-    UploadUrlFailed(String),
+    UploadUrlFailed(#[source] rquest::Error),
 
     /// S3 upload failed.
     #[error("S3 upload failed: {0}")]
-    S3UploadFailed(String),
+    S3UploadFailed(#[source] rquest::Error),
 
     /// Missing secure_url in S3 response.
     #[error("Missing secure_url in S3 response")]
