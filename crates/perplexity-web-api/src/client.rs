@@ -152,9 +152,8 @@ impl Client {
             }
         }
 
-        let event = last_event.ok_or(Error::UnexpectedEndOfStream)?;
-        let raw = serde_json::to_value(&event).map_err(Error::Json)?;
-        let SearchEvent { answer, web_results, backend_uuid, attachments, .. } = event;
+        let SearchEvent { answer, web_results, backend_uuid, attachments, raw } =
+            last_event.ok_or(Error::UnexpectedEndOfStream)?;
         let follow_up = FollowUpContext { backend_uuid, attachments };
 
         Ok(SearchResponse { answer, web_results, follow_up, raw })

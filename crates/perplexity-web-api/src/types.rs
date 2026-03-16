@@ -108,13 +108,6 @@ impl UploadFile {
         }
     }
 
-    pub(crate) fn as_bytes(&self) -> Bytes {
-        match self {
-            Self::Binary { data, .. } => data.clone(),
-            Self::Text { content, .. } => Bytes::copy_from_slice(content.as_bytes()),
-        }
-    }
-
     pub(crate) fn len(&self) -> usize {
         match self {
             Self::Binary { data, .. } => data.len(),
@@ -239,9 +232,8 @@ pub struct SearchEvent {
     /// Attachment URLs associated with this response.
     #[serde(default)]
     pub attachments: Vec<String>,
-    /// The raw JSON value from the SSE event.
-    #[serde(flatten)]
-    pub raw: HashMap<String, serde_json::Value>,
+    /// The full raw JSON value from the SSE event.
+    pub raw: serde_json::Value,
 }
 
 impl SearchEvent {

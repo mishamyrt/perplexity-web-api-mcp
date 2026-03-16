@@ -1,10 +1,6 @@
 use crate::error::{Error, Result};
 use crate::types::{SearchEvent, SearchWebResult};
 use serde_json::{Map, Value};
-use std::collections::HashMap;
-
-/// Keys that are extracted from the raw JSON and stored in dedicated fields.
-const EXTRACTED_KEYS: &[&str] = &["answer", "backend_uuid", "attachments"];
 
 /// Parses an SSE event JSON string into a SearchEvent.
 pub(crate) fn parse_sse_event(json_str: &str) -> Result<SearchEvent> {
@@ -21,8 +17,8 @@ pub(crate) fn parse_sse_event(json_str: &str) -> Result<SearchEvent> {
     let backend_uuid = extract_string(&content, "backend_uuid");
     let attachments = extract_string_array(&content, "attachments");
 
-    // Build raw map excluding extracted keys
-    let raw = build_raw_map(content);
+    // Preserve the full parsed JSON (after text-field expansion) as the raw value
+    let raw = Value::Object(content);
 
     Ok(SearchEvent { answer, web_results, backend_uuid, attachments, raw })
 }
@@ -110,11 +106,6 @@ fn extract_string_array(content: &Map<String, Value>, key: &str) -> Vec<String> 
         .unwrap_or_default()
 }
 
-/// Builds the raw map by excluding extracted keys.
-fn build_raw_map(content: Map<String, Value>) -> HashMap<String, Value> {
-    content.into_iter().filter(|(k, _)| !EXTRACTED_KEYS.contains(&k.as_str())).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,8 +169,8 @@ mod tests {
         assert_eq!(event.web_results[0].url, "https://example.com");
         assert_eq!(event.web_results[0].snippet, "Example");
         // The "text" field should be parsed and stored in raw
-        assert!(event.raw.contains_key("text"));
-        assert!(event.raw.contains_key("some_field"));
+        assert!(event.raw.get("text").is_some());
+        assert!(event.raw.get("some_field").is_some());
     }
 
     #[test]
@@ -205,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_event_raw_excludes_extracted_keys() {
+    fn test_parse_event_raw_contains_all_keys() {
         let json = r#"{
             "answer": "Test",
             "backend_uuid": "uuid",
@@ -215,14 +206,12 @@ mod tests {
         }"#;
         let event = parse_sse_event(json).unwrap();
 
-        // Extracted keys should not be in raw
-        assert!(!event.raw.contains_key("answer"));
-        assert!(!event.raw.contains_key("backend_uuid"));
-        assert!(!event.raw.contains_key("attachments"));
-
-        // Other fields should be in raw
-        assert!(event.raw.contains_key("extra_field"));
-        assert!(event.raw.contains_key("another"));
+        // All keys, including extracted ones, are present in raw
+        assert!(event.raw.get("answer").is_some());
+        assert!(event.raw.get("backend_uuid").is_some());
+        assert!(event.raw.get("attachments").is_some());
+        assert!(event.raw.get("extra_field").is_some());
+        assert!(event.raw.get("another").is_some());
     }
 
     #[test]
