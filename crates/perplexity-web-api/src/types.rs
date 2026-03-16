@@ -196,25 +196,12 @@ impl SearchRequest {
 }
 
 /// Context for follow-up queries, extracted from a previous response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FollowUpContext {
     /// Backend UUID from the previous response.
     pub backend_uuid: Option<String>,
     /// Attachment URLs from the previous response.
     pub attachments: Vec<String>,
-}
-
-impl FollowUpContext {
-    /// Creates a new empty follow-up context.
-    pub fn new() -> Self {
-        Self { backend_uuid: None, attachments: Vec::new() }
-    }
-}
-
-impl Default for FollowUpContext {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 /// A single event from the SSE stream.
