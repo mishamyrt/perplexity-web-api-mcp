@@ -156,6 +156,42 @@ codex mcp add perplexity --env PERPLEXITY_SESSION_TOKEN="your-session-token" --e
 
 Most clients can be manually configured to use the `mcpServers` wrapper in their configuration file (like Cursor). If your client doesn't work, check its documentation for the correct wrapper format.
 
+## Docker
+
+A pre-built multi-arch image (`linux/amd64`, `linux/arm64`) is available on Docker Hub:
+
+```bash
+docker run -d \
+  -p 8080:8080 \
+  -e PERPLEXITY_SESSION_TOKEN="your-session-token" \
+  -e PERPLEXITY_CSRF_TOKEN="your-csrf-token" \
+  mishamyrt/perplexity-web-api-mcp
+```
+
+The container exposes the MCP server via Streamable HTTP at `http://localhost:8080/mcp`.
+
+Configure your MCP client to connect:
+
+```json
+{
+  "mcpServers": {
+    "perplexity": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+### Environment Variables (Docker-specific)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_TRANSPORT` | `streamable-http` | Transport mode. `stdio` or `streamable-http` |
+| `MCP_HOST` | `0.0.0.0` | Host address to bind |
+| `MCP_PORT` | `8080` | Port to listen on |
+
+The [authentication tokens and model variables](#configuration) described above work the same way in Docker.
+
 ## Available Tools
 
 ### `perplexity_search`
