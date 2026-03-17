@@ -3,7 +3,13 @@
 mod server;
 
 use perplexity_web_api::{AuthCookies, Client, ReasonModel, SearchModel};
-use rmcp::{ServiceExt, transport::stdio};
+use rmcp::{
+    ServiceExt,
+    transport::{
+        stdio,
+        streamable_http_server::{StreamableHttpService, session::local::LocalSessionManager},
+    },
+};
 use std::{env, env::VarError};
 use tracing_subscriber::{EnvFilter, fmt};
 
@@ -141,18 +147,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let server =
         PerplexityServer::new(client, default_ask_model, default_reason_model, tokenless);
 
-    let service = server.serve(stdio()).await.inspect_err(|e| {
-        tracing::error!("Server error: {:?}", e);
-    })?;
+    let transport = optional_env("MCP_TRANSPORT")?.unwrap_or_else(|| "stdio".to_owned());
 
-    tracing::info!("MCP server running on stdio");
+    match transport.as_str() {
+        "stdio" => {
+            let service = server.serve(stdio()).await.inspect_err(|e| {
+                tracing::error!("Server error: {:?}", e);
+            })?;
 
-    tokio::select! {
-        result = service.waiting() => {
-            result?;
+            tracing::info!("MCP server running on stdio");
+
+            tokio::select! {
+                result = service.waiting() => {
+                    result?;
+                }
+                _ = shutdown_signal() => {
+                    tracing::info!("Shutdown signal received, stopping MCP server");
+                }
+            }
         }
-        _ = shutdown_signal() => {
-            tracing::info!("Shutdown signal received, stopping MCP server");
+        "streamable-http" => {
+            let host = optional_env("MCP_HOST")?.unwrap_or_else(|| "0.0.0.0".to_owned());
+            let port = optional_env("MCP_PORT")?.unwrap_or_else(|| "8080".to_owned());
+            let addr = format!("{host}:{port}");
+
+            let http_service = StreamableHttpService::new(
+                move || Ok(server.clone()),
+                LocalSessionManager::default().into(),
+                Default::default(),
+            );
+
+            let app = axum::Router::new().nest_service("/mcp", http_service);
+            let listener = tokio::net::TcpListener::bind(&addr).await?;
+            tracing::info!("MCP server listening on http://{addr}/mcp");
+            axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await?;
+        }
+        other => {
+            return Err(std::io::Error::other(format!(
+                "Unknown MCP_TRANSPORT value: '{other}'. Valid values: 'stdio', 'streamable-http'"
+            ))
+            .into());
         }
     }
 

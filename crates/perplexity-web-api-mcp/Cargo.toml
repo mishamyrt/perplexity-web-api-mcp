@@ -16,7 +16,8 @@ path = "src/main.rs"
 perplexity-web-api = { workspace = true, features = ["schemars"] }
 
 tokio = { workspace = true, features = ["signal"] }
-rmcp = { workspace = true }
+rmcp = { workspace = true, features = ["transport-streamable-http-server"] }
+axum = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
