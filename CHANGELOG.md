@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.8.0..v0.9.0) - 2026-03-17
+
+### 🚀 Features
+
+- Add streamable http transport
+- Add docker image
+
+### 🐛 Bug Fixes
+
+- Correct example model name
+- Avoid panic on base url parsing
+
+### 🚜 Refactor
+
+- Use tracing for client error logging
+- Remove unreachable auth→hashmap convertion
+- Remove unrechable tokenless checks
+- Simplify FollowUpContext default constructor
+- Avoid error variants discard on upload
+- Avoid wildcard on mode matching
+- Simplify sse parsing
+
+### ⚡ Performance
+
+- Simplify file upload serializing
+- Avoid sse values re-serialization
+
 ## [0.8.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.7.0..v0.8.0) - 2026-03-15
 
 ### 🚀 Features
