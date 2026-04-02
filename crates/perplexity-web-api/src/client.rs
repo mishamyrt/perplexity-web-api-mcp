@@ -80,7 +80,7 @@ impl ClientBuilder {
                 }
 
                 HttpClient::builder()
-                    .emulation(Emulation::Chrome131)
+                    .emulation(Emulation::Chrome136)
                     .cookie_provider(jar)
                     .build()
                     .map_err(Error::HttpClientInit)?
