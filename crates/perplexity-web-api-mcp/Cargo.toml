@@ -12,12 +12,16 @@ keywords = { workspace = true }
 name = "perplexity-web-api-mcp"
 path = "src/main.rs"
 
+[features]
+default = []
+streamable-http = ["dep:axum", "rmcp/transport-streamable-http-server"]
+
 [dependencies]
 perplexity-web-api = { workspace = true, features = ["schemars"] }
 
 tokio = { workspace = true, features = ["signal"] }
-rmcp = { workspace = true, features = ["transport-streamable-http-server"] }
-axum = { workspace = true }
+rmcp = { workspace = true }
+axum = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }

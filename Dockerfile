@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y cmake clang && rm -rf /var/lib/apt/list
 WORKDIR /app
 COPY . .
 
-RUN cargo build --profile dist --bin perplexity-web-api-mcp
+RUN cargo build --profile dist --bin perplexity-web-api-mcp --features streamable-http
 
 FROM gcr.io/distroless/cc-debian12
 

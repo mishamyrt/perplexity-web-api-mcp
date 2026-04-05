@@ -4,7 +4,7 @@
 
 use perplexity_web_api::{AuthCookies, Client, SearchMode, SearchRequest, UploadFile};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let session_token = std::env::var("PERPLEXITY_SESSION_TOKEN").ok();
     let csrf_token = std::env::var("PERPLEXITY_CSRF_TOKEN").ok();

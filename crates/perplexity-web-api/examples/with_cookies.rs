@@ -4,7 +4,7 @@
 
 use perplexity_web_api::{AuthCookies, Client, SearchMode, SearchModel, SearchRequest};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> perplexity_web_api::Result<()> {
     println!("=== Authenticated Usage Example ===\n");
 

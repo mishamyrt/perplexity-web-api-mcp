@@ -3,17 +3,16 @@
 mod server;
 
 use perplexity_web_api::{AuthCookies, Client, ReasonModel, SearchModel};
-use rmcp::{
-    ServiceExt,
-    transport::{
-        stdio,
-        streamable_http_server::{StreamableHttpService, session::local::LocalSessionManager},
-    },
-};
+use rmcp::{ServiceExt, transport::stdio};
 use std::{env, env::VarError};
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::fmt;
 
 use crate::server::PerplexityServer;
+
+#[cfg(feature = "streamable-http")]
+use rmcp::transport::streamable_http_server::{
+    StreamableHttpService, session::local::LocalSessionManager,
+};
 
 #[cfg(unix)]
 async fn shutdown_signal() {
@@ -80,13 +79,11 @@ where
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing (logs to stderr to not interfere with stdio transport)
     fmt()
-        .with_env_filter(
-            EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()),
-        )
+        .with_max_level(tracing::Level::INFO)
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .init();
@@ -166,6 +163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+        #[cfg(feature = "streamable-http")]
         "streamable-http" => {
             let host = optional_env("MCP_HOST")?.unwrap_or_else(|| "0.0.0.0".to_owned());
             let port = optional_env("MCP_PORT")?.unwrap_or_else(|| "8080".to_owned());
@@ -182,9 +180,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tracing::info!("MCP server listening on http://{addr}/mcp");
             axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await?;
         }
+        #[cfg(not(feature = "streamable-http"))]
+        "streamable-http" => {
+            return Err(std::io::Error::other(
+                "MCP_TRANSPORT=streamable-http requires building with the `streamable-http` cargo feature",
+            )
+            .into());
+        }
         other => {
+            #[cfg(feature = "streamable-http")]
+            let valid_values = "'stdio', 'streamable-http'";
+            #[cfg(not(feature = "streamable-http"))]
+            let valid_values = "'stdio'";
             return Err(std::io::Error::other(format!(
-                "Unknown MCP_TRANSPORT value: '{other}'. Valid values: 'stdio', 'streamable-http'"
+                "Unknown MCP_TRANSPORT value: '{other}'. Valid values: {valid_values}"
             ))
             .into());
         }

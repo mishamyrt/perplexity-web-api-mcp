@@ -5,7 +5,7 @@
 use futures_util::StreamExt;
 use perplexity_web_api::{Client, SearchRequest};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> perplexity_web_api::Result<()> {
     println!("Creating Perplexity client...");
 

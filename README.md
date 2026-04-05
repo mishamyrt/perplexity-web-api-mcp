@@ -153,6 +153,10 @@ I recommend using the one-click install badge at the top of this README for VS C
 codex mcp add perplexity --env PERPLEXITY_SESSION_TOKEN="your-session-token" --env PERPLEXITY_CSRF_TOKEN="your-csrf-token" -- npx -y perplexity-web-api-mcp
 ```
 
+### Building from Source
+
+Source build instructions, including optional cargo features, are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ### Other MCP Clients
 
 Most clients can be manually configured to use the `mcpServers` wrapper in their configuration file (like Cursor). If your client doesn't work, check its documentation for the correct wrapper format.
@@ -170,6 +174,7 @@ docker run -d \
 ```
 
 The container exposes the MCP server via Streamable HTTP at `http://localhost:8080/mcp`.
+The Docker image is built with `--features streamable-http`; local/source builds need the same feature if you want HTTP transport.
 
 Configure your MCP client to connect:
 
@@ -187,7 +192,7 @@ Configure your MCP client to connect:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_TRANSPORT` | `streamable-http` | Transport mode. `stdio` or `streamable-http` |
+| `MCP_TRANSPORT` | `streamable-http` | Transport mode. `stdio` or `streamable-http` (requires the `streamable-http` cargo feature) |
 | `MCP_HOST` | `0.0.0.0` | Host address to bind |
 | `MCP_PORT` | `8080` | Port to listen on |
 

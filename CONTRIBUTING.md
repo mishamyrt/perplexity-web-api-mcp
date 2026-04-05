@@ -25,6 +25,11 @@ cd perplexity-web-api-mcp
 cargo build --workspace --all-targets
 ```
 
+To build the optimized MCP binary directly:
+
+- `cargo build --profile dist --bin perplexity-web-api-mcp` builds the smaller `stdio`-only binary.
+- `cargo build --profile dist --bin perplexity-web-api-mcp --features streamable-http` enables the optional Streamable HTTP transport.
+
 #### Windows
 
 Building on Windows requires additional tools because this project depends on BoringSSL (via the `rquest` crate).
