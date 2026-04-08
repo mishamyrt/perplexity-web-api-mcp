@@ -15,7 +15,7 @@ license = "MIT"
 [workspace.dependencies]
 perplexity-web-api = { path = "crates/perplexity-web-api" }
 
-tokio = { version = "1.51.0", features = ["rt", "macros", "net"] }
+tokio = { version = "1.51.1", features = ["rt", "macros", "net"] }
 rquest = { version = "5.1.0", default-features = false, features = [
     "webpki-roots",
     "cookies",
