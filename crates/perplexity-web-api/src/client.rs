@@ -1,7 +1,7 @@
 use crate::auth::AuthCookies;
 use crate::config::{
     API_BASE_URL, API_MODE_CONCISE, API_MODE_COPILOT, API_VERSION, ENDPOINT_AUTH_SESSION,
-    ENDPOINT_SSE_ASK,
+    ENDPOINT_COLLECTION_GET, ENDPOINT_SSE_ASK,
 };
 use crate::error::{Error, Result};
 use crate::sse::SseStream;
@@ -191,6 +191,7 @@ impl Client {
         let sources_str: Vec<&'static str> =
             request.sources.iter().map(|s| s.as_str()).collect();
 
+        let has_collection = request.collection_uuid.is_some();
         let payload = AskPayload {
             query_str: &request.query,
             params: AskParams {
@@ -205,6 +206,9 @@ impl Client {
                 source: "default",
                 sources: sources_str,
                 version: API_VERSION,
+                target_collection_uuid: request.collection_uuid,
+                query_source: if has_collection { Some("collection") } else { None },
+                target_thread_access_level: if has_collection { Some(1) } else { None },
             },
         };
 
@@ -237,6 +241,33 @@ impl Client {
             return Err(Error::FileUploadRequiresAuth);
         }
         upload_files(&self.http, files, self.timeout).await
+    }
+
+    /// Resolves a Perplexity Space slug to its collection UUID.
+    ///
+    /// The slug is the last path component of the Space URL, e.g.
+    /// `turboclaw-w4THK6UCQhGvch04UnKrng` from
+    /// `https://www.perplexity.ai/spaces/turboclaw-w4THK6UCQhGvch04UnKrng`.
+    pub async fn get_collection_uuid(&self, slug: &str) -> Result<String> {
+        let url = format!("{}{}?collection_slug={}", API_BASE_URL, ENDPOINT_COLLECTION_GET, slug);
+        let resp_fut = self.http.get(&url).send();
+        let resp = tokio::time::timeout(self.timeout, resp_fut)
+            .await
+            .map_err(|_| Error::Timeout(self.timeout))?
+            .map_err(Error::SearchRequest)?
+            .error_for_status()
+            .map_err(|e| Error::Server {
+                status: e.status().map(|s| s.as_u16()).unwrap_or(0),
+                message: format!("Collection lookup failed: {}", e),
+            })?;
+        let json: serde_json::Value = resp.json().await.map_err(|e| Error::SearchRequest(e))?;
+        json.get("uuid")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_owned())
+            .ok_or_else(|| Error::Server {
+                status: 0,
+                message: format!("Collection response missing 'uuid' field for slug '{}'", slug),
+            })
     }
 
     fn validate_request(&self, request: &SearchRequest) -> Result<()> {

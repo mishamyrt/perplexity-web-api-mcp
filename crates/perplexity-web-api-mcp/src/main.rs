@@ -138,6 +138,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (Some(ask), reason)
     };
 
+    let space_slug = optional_env("PERPLEXITY_SPACE_SLUG")?;
+
     if tokenless {
         tracing::info!(
             "Starting Perplexity MCP server in tokenless mode (only perplexity_search and \
@@ -150,6 +152,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Perplexity request incognito mode is {}",
         if incognito { "enabled" } else { "disabled" }
     );
+    if let Some(ref slug) = space_slug {
+        tracing::info!("Perplexity Space slug configured: {}", slug);
+    }
 
     let mut builder = Client::builder();
     if let (Some(session), Some(csrf)) = (session_token, csrf_token) {
@@ -163,12 +168,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Perplexity client initialized");
 
+    // Resolve Space slug to collection UUID if configured
+    let collection_uuid = if let Some(ref slug) = space_slug {
+        match client.get_collection_uuid(slug).await {
+            Ok(uuid) => {
+                tracing::info!("Resolved Space '{}'  to collection UUID: {}", slug, uuid);
+                Some(uuid)
+            }
+            Err(e) => {
+                tracing::error!("Failed to resolve Space slug '{}': {}. Searches will not be scoped to any Space.", slug, e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let server = PerplexityServer::new(
         client,
         default_ask_model,
         default_reason_model,
         tokenless,
         incognito,
+        collection_uuid,
     );
 
     let transport = optional_env("MCP_TRANSPORT")?.unwrap_or_else(|| "stdio".to_owned());
