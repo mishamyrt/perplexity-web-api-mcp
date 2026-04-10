@@ -9,3 +9,5 @@ pub const ENDPOINT_ATTACHMENT_PROCESSING: &str = "/rest/sse/attachment_processin
 
 pub const API_MODE_CONCISE: &str = "concise";
 pub const API_MODE_COPILOT: &str = "copilot";
+
+pub const ENDPOINT_COLLECTION_GET: &str = "/rest/collections/get_collection";
