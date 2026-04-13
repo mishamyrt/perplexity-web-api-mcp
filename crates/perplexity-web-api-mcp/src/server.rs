@@ -5,7 +5,7 @@ use perplexity_web_api::{
 };
 use rmcp::{
     ErrorData as McpError, ServerHandler,
-    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+    handler::server::wrapper::Parameters,
     model::{CallToolResult, Content, Implementation, ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
 };
@@ -111,7 +111,6 @@ pub struct PerplexityServer {
     reason_model: Option<ReasonModel>,
     tokenless: bool,
     incognito: bool,
-    tool_router: ToolRouter<Self>,
 }
 
 fn to_json_tool_result(value: &impl Serialize) -> Result<CallToolResult, McpError> {
@@ -135,12 +134,7 @@ impl PerplexityServer {
         tokenless: bool,
         incognito: bool,
     ) -> Self {
-        let mut tool_router = Self::tool_router();
-        if tokenless {
-            tool_router.remove_route("perplexity_research");
-            tool_router.remove_route("perplexity_reason");
-        }
-        Self { client, ask_model, reason_model, tokenless, incognito, tool_router }
+        Self { client, ask_model, reason_model, tokenless, incognito }
     }
 
     /// Converts a `FileAttachment` from tool parameters into an `UploadFile`.
