@@ -13,6 +13,10 @@ All notable changes to this project will be documented in this file.
 - Treat authenticated warm-up timeout as a total budget — remaining time is forwarded to the response-body read so the budget is not double-counted
 - Fall back to HTTP status 500 (instead of 0) when an error has no associated status code
 - Empty `PERPLEXITY_ASK_MODEL` / `PERPLEXITY_REASON_MODEL` are now silently ignored in tokenless mode; only non-empty values are rejected
+- Hide `perplexity_reason` and `perplexity_research` from Inspector and MCP clients in tokenless mode instead of exposing tools that fail immediately at call time
+- Validate saved auth during startup, delete stale cached sessions automatically, and recover to interactive setup or tokenless mode instead of aborting startup
+- Continue with the current validated session when first-run setup cannot persist local auth
+- Remove temporary auth config files when persistence fails before the atomic replace step
 
 ### 🚜 Refactor
 

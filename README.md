@@ -80,10 +80,12 @@ Saved auth is stored as JSON in your OS user config directory:
 
 Delete that file manually if you want to remove the saved auth cache.
 
-If a previously saved session expires, the server now rejects it during startup instead of silently treating it as authenticated. Remove the cached file and either:
+If a previously saved session expires, the server now validates it during startup. Invalid or expired saved auth is removed automatically:
 
-1. rerun `npx -y perplexity-web-api-mcp` in an interactive terminal to save fresh tokens, or
-2. provide fresh `PERPLEXITY_SESSION_TOKEN` and `PERPLEXITY_CSRF_TOKEN` values in your MCP client config.
+- in an interactive terminal, the server falls through to the first-run setup prompt so you can save fresh tokens immediately
+- in a non-interactive MCP client, the server falls back to tokenless mode instead of failing startup
+
+If the first-run setup validates your tokens but cannot write the local config file, the current session still continues with the validated auth. You only need to rerun setup later if you want that auth to persist across future launches.
 
 ### Environment Variables
 
@@ -110,7 +112,7 @@ Environment variables are still the highest-priority auth source.
 - `MCP_HOST` (optional, default: `0.0.0.0`): Host/interface to bind when `MCP_TRANSPORT=streamable-http`.
 - `MCP_PORT` (optional, default: `8080`): TCP port to bind when `MCP_TRANSPORT=streamable-http`.
 
-When authentication cookies are provided, client startup validates them immediately by warming up `/api/auth/session`. Invalid or expired cookies fail startup instead of producing partial access later. The configured client timeout is treated as the total budget for that warm-up, including reading the session payload.
+When authentication cookies are provided, client startup validates them immediately by warming up `/api/auth/session`. Invalid or expired cookies fail startup instead of producing partial access later. For saved local auth, that validation also happens during auth resolution so stale cache entries can be discarded before the server decides whether to prompt interactively or fall back to tokenless mode. The configured client timeout is treated as the total budget for that warm-up, including reading the session payload.
 
 In tokenless mode, empty `PERPLEXITY_ASK_MODEL` / `PERPLEXITY_REASON_MODEL` values are ignored, but any non-empty model override is rejected because tokenless mode always uses the built-in free/default behavior.
 

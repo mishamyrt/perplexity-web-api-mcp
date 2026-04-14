@@ -5,7 +5,7 @@ use perplexity_web_api::{
 };
 use rmcp::{
     ErrorData as McpError, ServerHandler,
-    handler::server::wrapper::Parameters,
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{CallToolResult, Content, Implementation, ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
 };
@@ -111,6 +111,7 @@ pub struct PerplexityServer {
     reason_model: Option<ReasonModel>,
     tokenless: bool,
     incognito: bool,
+    tool_router: ToolRouter<Self>,
 }
 
 fn to_json_tool_result(value: &impl Serialize) -> Result<CallToolResult, McpError> {
@@ -121,6 +122,15 @@ fn to_json_tool_result(value: &impl Serialize) -> Result<CallToolResult, McpErro
 }
 
 impl PerplexityServer {
+    fn configured_tool_router(tokenless: bool) -> ToolRouter<Self> {
+        let mut router = Self::tool_router();
+        if tokenless {
+            router.remove_route("perplexity_reason");
+            router.remove_route("perplexity_research");
+        }
+        router
+    }
+
     /// Creates a new server instance with the given Perplexity client.
     ///
     /// When `tokenless` is `true`, only `perplexity_search` and `perplexity_ask`
@@ -134,7 +144,14 @@ impl PerplexityServer {
         tokenless: bool,
         incognito: bool,
     ) -> Self {
-        Self { client, ask_model, reason_model, tokenless, incognito }
+        Self {
+            client,
+            ask_model,
+            reason_model,
+            tokenless,
+            incognito,
+            tool_router: Self::configured_tool_router(tokenless),
+        }
     }
 
     /// Converts a `FileAttachment` from tool parameters into an `UploadFile`.
@@ -454,6 +471,36 @@ mod tests {
         .unwrap();
     }
 
+    #[test]
+    fn tokenless_router_hides_premium_tools() {
+        let tool_names = PerplexityServer::configured_tool_router(true)
+            .list_all()
+            .into_iter()
+            .map(|tool| tool.name.to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(tool_names, vec!["perplexity_ask", "perplexity_search"]);
+    }
+
+    #[test]
+    fn authenticated_router_exposes_all_tools() {
+        let tool_names = PerplexityServer::configured_tool_router(false)
+            .list_all()
+            .into_iter()
+            .map(|tool| tool.name.to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            tool_names,
+            vec![
+                "perplexity_ask",
+                "perplexity_reason",
+                "perplexity_research",
+                "perplexity_search",
+            ]
+        );
+    }
+
     fn build_request(
         params: PerplexityRequest,
     ) -> Result<perplexity_web_api::SearchRequest, McpError> {
@@ -601,7 +648,7 @@ impl PerplexityServer {
     }
 }
 
-#[tool_handler]
+#[tool_handler(router = self.tool_router)]
 impl ServerHandler for PerplexityServer {
     fn get_info(&self) -> ServerInfo {
         let mut instructions = String::from(

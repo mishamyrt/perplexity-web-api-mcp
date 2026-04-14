@@ -2,10 +2,11 @@ use perplexity_web_api::{AuthCookies, REDACTED_SECRET};
 use std::{
     env,
     env::VarError,
-    fmt,
+    fmt, fs,
     future::Future,
     io,
     path::{Path, PathBuf},
+    pin::Pin,
 };
 
 use crate::{config, setup, tty};
@@ -97,20 +98,25 @@ pub(crate) async fn resolve_auth() -> io::Result<ResolvedAuth> {
         config_path.as_deref(),
         tty::is_interactive(),
         |path| async move { setup::run_first_run_setup(&path).await },
+        |auth| Box::pin(setup::validate_auth(auth)),
     )
     .await
 }
 
-pub(crate) async fn resolve_auth_with<GetEnv, Setup, SetupFuture>(
+type ValidateAuthFuture<'a> = Pin<Box<dyn Future<Output = io::Result<()>> + 'a>>;
+
+pub(crate) async fn resolve_auth_with<GetEnv, Setup, SetupFuture, ValidateCached>(
     get_env: GetEnv,
     config_path: Option<&Path>,
     interactive: bool,
     setup_runner: Setup,
+    mut validate_cached_auth: ValidateCached,
 ) -> io::Result<ResolvedAuth>
 where
     GetEnv: for<'a> Fn(&'a str) -> Result<String, VarError>,
     Setup: FnOnce(PathBuf) -> SetupFuture,
     SetupFuture: Future<Output = io::Result<Option<AuthTokens>>>,
+    ValidateCached: for<'a> FnMut(&'a AuthTokens) -> ValidateAuthFuture<'a>,
 {
     if let Some(tokens) = load_auth_from_env_with(&get_env)? {
         return Ok(ResolvedAuth::authenticated(tokens, AuthSource::Environment));
@@ -119,7 +125,25 @@ where
     if let Some(path) = config_path
         && let Some(tokens) = config::load_auth_from_path(path)?
     {
-        return Ok(ResolvedAuth::authenticated(tokens, AuthSource::CachedConfig));
+        match validate_cached_auth(&tokens).await {
+            Ok(()) => {
+                return Ok(ResolvedAuth::authenticated(tokens, AuthSource::CachedConfig));
+            }
+            Err(err) => {
+                tracing::warn!(
+                    "Cached Perplexity authentication at {} failed validation: {}",
+                    path.display(),
+                    err
+                );
+                if let Err(remove_err) = remove_cached_auth(path) {
+                    tracing::warn!(
+                        "Failed to remove invalid cached Perplexity authentication at {}: {}",
+                        path.display(),
+                        remove_err
+                    );
+                }
+            }
+        }
     }
 
     if interactive {
@@ -139,6 +163,14 @@ where
     }
 
     Ok(ResolvedAuth::tokenless())
+}
+
+fn remove_cached_auth(path: &Path) -> io::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err),
+    }
 }
 
 pub(crate) fn load_auth_from_env_with<GetEnv>(
@@ -183,7 +215,7 @@ mod tests {
     use std::{
         collections::HashMap,
         env::VarError,
-        fs, future,
+        fs, future, io,
         sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
@@ -211,9 +243,13 @@ mod tests {
             (CSRF_TOKEN_ENV, "env-csrf".to_owned()),
         ]);
 
-        let resolved = resolve_auth_with(env_lookup(&env), Some(&config_path), false, |_| {
-            future::ready(Ok(None))
-        })
+        let resolved = resolve_auth_with(
+            env_lookup(&env),
+            Some(&config_path),
+            false,
+            |_| future::ready(Ok(None)),
+            |_| Box::pin(async { Ok(()) }),
+        )
         .await
         .unwrap();
 
@@ -240,10 +276,16 @@ mod tests {
         let prompt_called = Arc::new(AtomicBool::new(false));
         let prompt_called_for_closure = Arc::clone(&prompt_called);
 
-        let resolved = resolve_auth_with(empty_env, Some(&config_path), false, move |_| {
-            prompt_called_for_closure.store(true, Ordering::SeqCst);
-            future::ready(AuthTokens::try_new("session".into(), "csrf".into()).map(Some))
-        })
+        let resolved = resolve_auth_with(
+            empty_env,
+            Some(&config_path),
+            false,
+            move |_| {
+                prompt_called_for_closure.store(true, Ordering::SeqCst);
+                future::ready(AuthTokens::try_new("session".into(), "csrf".into()).map(Some))
+            },
+            |_| Box::pin(async { Ok(()) }),
+        )
         .await
         .unwrap();
 
@@ -262,9 +304,13 @@ mod tests {
         )
         .unwrap();
 
-        let resolved = resolve_auth_with(empty_env, Some(&config_path), false, |_| {
-            future::ready(Ok(None))
-        })
+        let resolved = resolve_auth_with(
+            empty_env,
+            Some(&config_path),
+            false,
+            |_| future::ready(Ok(None)),
+            |_| Box::pin(async { Ok(()) }),
+        )
         .await
         .unwrap();
 
@@ -279,11 +325,18 @@ mod tests {
         let temp_dir = TempDir::new("interactive-setup");
         let config_path = temp_dir.path().join("config.json");
 
-        let resolved = resolve_auth_with(empty_env, Some(&config_path), true, |_| {
-            future::ready(
-                AuthTokens::try_new("prompt-session".into(), "prompt-csrf".into()).map(Some),
-            )
-        })
+        let resolved = resolve_auth_with(
+            empty_env,
+            Some(&config_path),
+            true,
+            |_| {
+                future::ready(
+                    AuthTokens::try_new("prompt-session".into(), "prompt-csrf".into())
+                        .map(Some),
+                )
+            },
+            |_| Box::pin(async { Ok(()) }),
+        )
         .await
         .unwrap();
 
@@ -298,10 +351,16 @@ mod tests {
         let prompt_called = Arc::new(AtomicBool::new(false));
         let prompt_called_for_closure = Arc::clone(&prompt_called);
 
-        let resolved = resolve_auth_with(empty_env, None, true, move |_| {
-            prompt_called_for_closure.store(true, Ordering::SeqCst);
-            future::ready(AuthTokens::try_new("session".into(), "csrf".into()).map(Some))
-        })
+        let resolved = resolve_auth_with(
+            empty_env,
+            None,
+            true,
+            move |_| {
+                prompt_called_for_closure.store(true, Ordering::SeqCst);
+                future::ready(AuthTokens::try_new("session".into(), "csrf".into()).map(Some))
+            },
+            |_| Box::pin(async { Ok(()) }),
+        )
         .await
         .unwrap();
 
@@ -316,11 +375,18 @@ mod tests {
         let config_path = temp_dir.path().join("config.json");
         fs::write(&config_path, "{not json").unwrap();
 
-        let resolved = resolve_auth_with(empty_env, Some(&config_path), true, |_| {
-            future::ready(
-                AuthTokens::try_new("prompt-session".into(), "prompt-csrf".into()).map(Some),
-            )
-        })
+        let resolved = resolve_auth_with(
+            empty_env,
+            Some(&config_path),
+            true,
+            |_| {
+                future::ready(
+                    AuthTokens::try_new("prompt-session".into(), "prompt-csrf".into())
+                        .map(Some),
+                )
+            },
+            |_| Box::pin(async { Ok(()) }),
+        )
         .await
         .unwrap();
 
@@ -328,6 +394,77 @@ mod tests {
         let cookies = resolved.cookies.unwrap();
         assert_eq!(cookies.session_token(), "prompt-session");
         assert_eq!(cookies.csrf_token(), "prompt-csrf");
+    }
+
+    #[tokio::test]
+    async fn invalid_cached_config_is_removed_and_replaced_via_interactive_setup() {
+        let temp_dir = TempDir::new("invalid-cached-config");
+        let config_path = temp_dir.path().join("config.json");
+        config::save_auth_to_path(
+            &config_path,
+            &AuthTokens::try_new("stale-session".into(), "stale-csrf".into()).unwrap(),
+        )
+        .unwrap();
+
+        let resolved = resolve_auth_with(
+            empty_env,
+            Some(&config_path),
+            true,
+            |path| {
+                let path = path.clone();
+                future::ready((|| -> io::Result<Option<AuthTokens>> {
+                    let fresh =
+                        AuthTokens::try_new("fresh-session".into(), "fresh-csrf".into())?;
+                    config::save_auth_to_path(&path, &fresh)?;
+                    Ok(Some(fresh))
+                })())
+            },
+            |auth| {
+                Box::pin(async move {
+                    if auth.session_token() == "stale-session" {
+                        Err(io::Error::other("cached auth rejected"))
+                    } else {
+                        Ok(())
+                    }
+                })
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(resolved.source, AuthSource::InteractiveSetup);
+        let cookies = resolved.cookies.unwrap();
+        assert_eq!(cookies.session_token(), "fresh-session");
+        assert_eq!(cookies.csrf_token(), "fresh-csrf");
+
+        let saved = config::load_auth_from_path(&config_path).unwrap().unwrap();
+        assert_eq!(saved.session_token(), "fresh-session");
+        assert_eq!(saved.csrf_token(), "fresh-csrf");
+    }
+
+    #[tokio::test]
+    async fn invalid_cached_config_falls_back_to_tokenless_when_non_interactive() {
+        let temp_dir = TempDir::new("invalid-cached-non-interactive");
+        let config_path = temp_dir.path().join("config.json");
+        config::save_auth_to_path(
+            &config_path,
+            &AuthTokens::try_new("stale-session".into(), "stale-csrf".into()).unwrap(),
+        )
+        .unwrap();
+
+        let resolved = resolve_auth_with(
+            empty_env,
+            Some(&config_path),
+            false,
+            |_| future::ready(Ok(None)),
+            |_| Box::pin(async { Err(io::Error::other("cached auth rejected")) }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(resolved.source, AuthSource::Tokenless);
+        assert!(resolved.cookies.is_none());
+        assert!(config::load_auth_from_path(&config_path).unwrap().is_none());
     }
 
     fn env_lookup<'a>(

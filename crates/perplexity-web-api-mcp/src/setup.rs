@@ -44,11 +44,21 @@ where
 
         match validate(&auth).await {
             Ok(()) => {
-                config::save_auth_to_path(config_path, &auth)?;
-                tracing::info!(
-                    "Saved validated Perplexity authentication to {}",
-                    config_path.display()
-                );
+                match config::save_auth_to_path(config_path, &auth) {
+                    Ok(()) => {
+                        tracing::info!(
+                            "Saved validated Perplexity authentication to {}",
+                            config_path.display()
+                        );
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            "Validated Perplexity authentication could not be saved to {}: {}. Continuing with this session only",
+                            config_path.display(),
+                            err
+                        );
+                    }
+                }
                 return Ok(Some(auth));
             }
             Err(err) => {
@@ -151,7 +161,7 @@ fn prompt_cancelled(err: &dialoguer::Error) -> bool {
     )
 }
 
-async fn validate_auth(auth: &AuthTokens) -> io::Result<()> {
+pub(crate) async fn validate_auth(auth: &AuthTokens) -> io::Result<()> {
     Client::builder()
         .cookies(AuthCookies::new(auth.session_token(), auth.csrf_token()))
         .build()
@@ -249,6 +259,28 @@ mod tests {
         .unwrap();
 
         assert!(result.is_none());
+        assert!(config::load_auth_from_path(&config_path).unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn setup_keeps_validated_auth_when_save_fails() {
+        let temp_dir = TempDir::new("setup-save-failure");
+        let blocked_parent = temp_dir.path().join("not-a-directory");
+        std::fs::write(&blocked_parent, "blocking file").unwrap();
+        let config_path = blocked_parent.join("config.json");
+
+        let result = run_first_run_setup_with(
+            &config_path,
+            || async { Ok(Some(AuthTokens::try_new("session".into(), "csrf".into())?)) },
+            || async { Ok(false) },
+            |_| Box::pin(async { Ok(()) }),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(result.session_token(), "session");
+        assert_eq!(result.csrf_token(), "csrf");
         assert!(config::load_auth_from_path(&config_path).unwrap().is_none());
     }
 

@@ -44,7 +44,10 @@ pub(crate) fn load_auth_from_path(path: &Path) -> io::Result<Option<AuthTokens>>
     let raw = match fs::read_to_string(path) {
         Ok(raw) => raw,
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err),
+        Err(err) => {
+            tracing::warn!("Ignoring unreadable auth config at {}: {}", path.display(), err);
+            return Ok(None);
+        }
     };
 
     if raw.trim().is_empty() {
@@ -73,6 +76,17 @@ pub(crate) fn load_auth_from_path(path: &Path) -> io::Result<Option<AuthTokens>>
 }
 
 pub(crate) fn save_auth_to_path(path: &Path, auth: &AuthTokens) -> io::Result<()> {
+    save_auth_to_path_with(path, auth, |file| file.sync_all())
+}
+
+fn save_auth_to_path_with<SyncFile>(
+    path: &Path,
+    auth: &AuthTokens,
+    mut sync_file: SyncFile,
+) -> io::Result<()>
+where
+    SyncFile: FnMut(&fs::File) -> io::Result<()>,
+{
     let parent = path.parent().ok_or_else(|| {
         io::Error::other(format!(
             "Auth config path {} has no parent directory",
@@ -106,16 +120,25 @@ pub(crate) fn save_auth_to_path(path: &Path, auth: &AuthTokens) -> io::Result<()
             return Err(io::Error::other(format!("Failed to create temp auth config: {err}")));
         }
     };
-    file.write_all(json.as_bytes())?;
-    file.write_all(b"\n")?;
-    file.sync_all()?;
+    let write_result = (|| -> io::Result<()> {
+        file.write_all(json.as_bytes())?;
+        file.write_all(b"\n")?;
+        sync_file(&file)?;
 
-    #[cfg(unix)]
-    set_permissions(&temp_path, 0o600)?;
+        #[cfg(unix)]
+        set_permissions(&temp_path, 0o600)?;
 
-    replace_file(&temp_path, path)?;
-    #[cfg(unix)]
-    set_permissions(path, 0o600)?;
+        replace_file(&temp_path, path)?;
+        #[cfg(unix)]
+        set_permissions(path, 0o600)?;
+
+        Ok(())
+    })();
+
+    if let Err(err) = write_result {
+        let _ = fs::remove_file(&temp_path);
+        return Err(err);
+    }
 
     Ok(())
 }
@@ -204,6 +227,29 @@ mod tests {
         let loaded = load_auth_from_path(&config_path).unwrap().unwrap();
         assert_eq!(loaded.session_token(), "new-session");
         assert_eq!(loaded.csrf_token(), "new-csrf");
+
+        let lingering_temp_files = fs::read_dir(temp_dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".tmp"))
+            .collect::<Vec<_>>();
+        assert!(lingering_temp_files.is_empty());
+    }
+
+    #[test]
+    fn cleans_up_temp_files_when_persistence_fails() {
+        let temp_dir = TempDir::new("config-cleanup-on-error");
+        let config_path = temp_dir.path().join("config.json");
+        let auth = AuthTokens::try_new("session-token".into(), "csrf-token".into()).unwrap();
+
+        let error = super::save_auth_to_path_with(&config_path, &auth, |_| {
+            Err(std::io::Error::other("simulated sync failure"))
+        })
+        .unwrap_err();
+
+        assert!(error.to_string().contains("simulated sync failure"));
+        assert!(load_auth_from_path(&config_path).unwrap().is_none());
 
         let lingering_temp_files = fs::read_dir(temp_dir.path())
             .unwrap()
