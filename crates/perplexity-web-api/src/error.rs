@@ -12,6 +12,14 @@ pub enum Error {
     #[error("Session warmup failed: {0}")]
     SessionWarmup(#[source] rquest::Error),
 
+    /// Authenticated startup did not yield a logged-in session.
+    #[error("Perplexity authentication cookies were rejected")]
+    AuthenticationFailed,
+
+    /// Session warm-up returned an unexpected payload.
+    #[error("Perplexity session warmup returned an unexpected response")]
+    InvalidAuthenticationResponse,
+
     /// Search request failed.
     #[error("Search request failed: {0}")]
     SearchRequest(#[source] rquest::Error),
@@ -31,6 +39,12 @@ pub enum Error {
     /// File uploads require authentication cookies.
     #[error("File uploads require authentication cookies")]
     FileUploadRequiresAuth,
+
+    /// Premium search modes require authentication cookies.
+    #[error(
+        "Premium search modes and explicit model selection require authentication cookies"
+    )]
+    AuthenticatedModeRequiresAuth,
 
     /// Failed to get upload URL.
     #[error("Failed to get upload URL: {0}")]

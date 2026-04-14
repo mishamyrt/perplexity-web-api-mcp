@@ -8,8 +8,9 @@ use perplexity_web_api::{AuthCookies, Client, SearchMode, SearchModel, SearchReq
 async fn main() -> perplexity_web_api::Result<()> {
     println!("=== Authenticated Usage Example ===\n");
 
-    // To use pro/reasoning modes, you need Perplexity account cookies.
-    // See README for instructions on obtaining cookies.
+    // To use pro/reasoning modes, you need the values from the
+    // `__Secure-next-auth.session-token` and `next-auth.csrf-token` browser cookies.
+    // See README for instructions on obtaining them.
     let session_token = std::env::var("PERPLEXITY_SESSION_TOKEN").ok();
     let csrf_token = std::env::var("PERPLEXITY_CSRF_TOKEN").ok();
 

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### 🚀 Features
+
+- Safe first-run interactive setup: running the binary once in a terminal prompts for tokens, validates them, and saves them for non-interactive MCP clients
+
+### 🐛 Bug Fixes
+
+- Treat authenticated warm-up timeout as a total budget — remaining time is forwarded to the response-body read so the budget is not double-counted
+- Fall back to HTTP status 500 (instead of 0) when an error has no associated status code
+- Empty `PERPLEXITY_ASK_MODEL` / `PERPLEXITY_REASON_MODEL` are now silently ignored in tokenless mode; only non-empty values are rejected
+
+### 🚜 Refactor
+
+- Extract `request_requires_authentication(mode, model_preference)` as a shared public function used consistently by both the client layer and the MCP server layer
+- Split auth resolution, saved-config persistence, interactive setup wizard, and TTY detection into dedicated modules (`auth`, `config`, `setup`, `tty`)
+
 ## [0.11.0](https://github.com/mishamyrt/perplexity-web-api-mcp/compare/v0.10.0..v0.11.0) - 2026-04-08
 
 ### 🚀 Features

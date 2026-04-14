@@ -23,6 +23,7 @@ cd perplexity-web-api-mcp
 
 ```bash
 cargo build --workspace --all-targets
+cargo build -p perplexity-web-api-mcp --all-targets --features streamable-http
 ```
 
 To build the optimized MCP binary directly:
@@ -60,7 +61,7 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -Clean
 ### 3. Run Tests
 
 ```bash
-cargo test --workspace
+cargo test --workspace --lib
 ```
 
 ## Project Structure
@@ -70,18 +71,26 @@ perplexity-web-api-mcp/
 ├── crates/
 │   ├── perplexity-web-api/       # Core API client library
 │   │   ├── src/
+│   │   │   ├── auth.rs           # Auth cookie types, cookie-name constants, REDACTED_SECRET
 │   │   │   ├── client.rs         # HTTP client and request handling
-│   │   │   ├── config.rs         # API configuration constants
+│   │   │   ├── config.rs         # API configuration constants (base URL, timeouts)
 │   │   │   ├── error.rs          # Error types
+│   │   │   ├── http.rs           # Shared HTTP response helpers (ensure_success_response)
+│   │   │   ├── models.rs         # Model preference types and name constants
 │   │   │   ├── parse.rs          # Response parsing
 │   │   │   ├── sse.rs            # Server-Sent Events stream handling
-│   │   │   ├── types.rs          # Request/response types
+│   │   │   ├── types.rs          # Request/response types and request_requires_authentication
 │   │   │   └── upload.rs         # File upload functionality
 │   │   └── examples/             # Usage examples
 │   └── perplexity-web-api-mcp/   # MCP server binary
 │       └── src/
-│           ├── main.rs           # Entry point
-│           └── server.rs         # MCP tool implementations
+│           ├── auth.rs           # Auth resolution (env → saved config → interactive → tokenless)
+│           ├── config.rs         # Saved auth config persistence (load/save with file permissions)
+│           ├── main.rs           # Entry point and model env var resolution
+│           ├── server.rs         # MCP tool implementations
+│           ├── setup.rs          # Interactive first-run setup wizard
+│           ├── test_utils.rs     # Shared test helpers (TempDir)
+│           └── tty.rs            # TTY detection for interactive-mode guard
 ├── Cargo.toml                    # Workspace configuration
 └── AGENTS.md                     # AI agent guidelines
 ```
@@ -141,6 +150,20 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # Build all targets
 cargo build --workspace --all-targets
+
+# Verify the optional Streamable HTTP transport build
+cargo build -p perplexity-web-api-mcp --all-targets --features streamable-http
+
+# Run deterministic unit coverage
+cargo test --workspace --lib
+```
+
+Authenticated e2e coverage is opt-in because it depends on live Perplexity session cookies:
+
+```bash
+PERPLEXITY_SESSION_TOKEN="..." \
+PERPLEXITY_CSRF_TOKEN="..." \
+cargo test -p perplexity-web-api --test integration -- --ignored --test-threads=1
 ```
 
 ### Commit Messages
@@ -185,6 +208,8 @@ Examples require authentication tokens. Set environment variables:
 export PERPLEXITY_SESSION_TOKEN="your-session-token"
 export PERPLEXITY_CSRF_TOKEN="your-csrf-token"
 ```
+
+`PERPLEXITY_SESSION_TOKEN` should be copied from the browser cookie named `__Secure-next-auth.session-token`.
 
 Then run:
 

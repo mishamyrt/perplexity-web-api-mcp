@@ -3,6 +3,7 @@ use crate::config::{
     ENDPOINT_BATCH_UPLOAD_URL,
 };
 use crate::error::{Error, Result};
+use crate::http::ensure_success_response;
 use crate::types::{
     BatchUploadFileInfo, BatchUploadFileMeta, BatchUploadFileResponse, BatchUploadFileResults,
     UploadFile,
@@ -123,11 +124,10 @@ async fn request_upload_urls(
     let resp = tokio::time::timeout(timeout, fut)
         .await
         .map_err(|_| Error::Timeout(timeout))?
-        .map_err(Error::UploadRequest)?
-        .error_for_status()
-        .map_err(Error::UploadUrlFailed)?;
+        .map_err(Error::UploadRequest)?;
+    let resp = ensure_success_response(resp)?;
 
-    resp.json().await.map_err(Error::UploadRequest)
+    resp.json::<BatchUploadFileResponse>().await.map_err(Error::UploadRequest)
 }
 
 /// Step 2: upload a single file to S3 using the presigned form fields.
@@ -157,12 +157,11 @@ async fn upload_to_s3(
 
     let fut = http.post(&results.s3_bucket_url).multipart(form).send();
 
-    tokio::time::timeout(timeout, fut)
+    let response = tokio::time::timeout(timeout, fut)
         .await
         .map_err(|_| Error::Timeout(timeout))?
-        .map_err(Error::UploadRequest)?
-        .error_for_status()
-        .map_err(Error::S3UploadFailed)?;
+        .map_err(Error::UploadRequest)?;
+    response.error_for_status().map_err(Error::S3UploadFailed)?;
 
     Ok(())
 }
@@ -196,12 +195,11 @@ async fn wait_for_processing(
     let resp = tokio::time::timeout(timeout, sse_fut)
         .await
         .map_err(|_| Error::Timeout(timeout))?
-        .map_err(Error::UploadRequest)?
-        .error_for_status()
-        .map_err(Error::AttachmentProcessing)?;
+        .map_err(Error::UploadRequest)?;
+    let resp = ensure_success_response(resp)?;
 
     let body_fut = resp.bytes();
-    tokio::time::timeout(timeout, body_fut)
+    let _: bytes::Bytes = tokio::time::timeout(timeout, body_fut)
         .await
         .map_err(|_| Error::Timeout(timeout))?
         .map_err(Error::AttachmentProcessing)?;
