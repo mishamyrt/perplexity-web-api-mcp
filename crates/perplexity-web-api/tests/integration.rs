@@ -48,8 +48,6 @@ fn assert_response_has_answer(response: &SearchResponse, context: &str) {
 #[tokio::test]
 #[ignore]
 async fn perplexity_search_without_authorization_returns_answer() {
-    ensure_required_env_vars();
-
     let client = Client::builder()
         .timeout(SEARCH_TIMEOUT)
         .build()
@@ -124,4 +122,21 @@ async fn perplexity_reason_with_authorization_returns_answer() {
         .expect("perplexity_reason with authorization request failed");
 
     assert_response_has_answer(&response, "perplexity_reason with authorization");
+}
+
+#[tokio::test]
+#[ignore]
+async fn invalid_or_expired_cookies_fail_during_build() {
+    let result = Client::builder()
+        .cookies(AuthCookies::new("invalid-session-token", "invalid-csrf-token"))
+        .timeout(SEARCH_TIMEOUT)
+        .build()
+        .await;
+
+    match result {
+        Ok(_) => panic!("invalid cookies should fail during authenticated warm-up"),
+        Err(error) => {
+            assert!(matches!(error, perplexity_web_api::Error::AuthenticationFailed))
+        }
+    }
 }

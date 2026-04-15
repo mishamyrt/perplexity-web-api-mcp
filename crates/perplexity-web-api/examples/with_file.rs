@@ -6,6 +6,8 @@ use perplexity_web_api::{AuthCookies, Client, SearchMode, SearchRequest, UploadF
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // These values come from the `__Secure-next-auth.session-token`
+    // and `next-auth.csrf-token` browser cookies.
     let session_token = std::env::var("PERPLEXITY_SESSION_TOKEN").ok();
     let csrf_token = std::env::var("PERPLEXITY_CSRF_TOKEN").ok();
 

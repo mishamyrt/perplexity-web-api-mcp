@@ -32,6 +32,16 @@ impl SearchMode {
     }
 }
 
+/// Returns whether the requested mode or explicit model selection requires
+/// authenticated Perplexity session cookies.
+pub fn request_requires_authentication(
+    mode: SearchMode,
+    model_preference: Option<ModelPreference>,
+) -> bool {
+    matches!(mode, SearchMode::Pro | SearchMode::Reasoning | SearchMode::DeepResearch)
+        || model_preference.is_some_and(|preference| preference != SearchModel::Turbo.into())
+}
+
 /// Information source for search queries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Source {

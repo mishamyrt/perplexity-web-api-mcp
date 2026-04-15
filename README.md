@@ -22,19 +22,30 @@ This MCP server uses your Perplexity account session directly — **no API key n
 
 Perplexity offers a separate [paid API](https://docs.perplexity.ai/guides/pricing) with per-request pricing that is charged independently from your Pro subscription. With this MCP, you don't need to pay for API access — your existing Perplexity subscription (or even a free account) is enough.
 
-Simply extract the session tokens from your browser cookies, and you're ready to use Perplexity search, research, and reasoning in your IDE.
+You still need to copy two token values manually from a logged-in browser session. This project does **not** extract cookies from browser profiles, automate browsers, or read existing logged-in browser sessions for you.
+
+## Authentication Flow
+
+Authentication is resolved in this order:
+
+1. `PERPLEXITY_SESSION_TOKEN` + `PERPLEXITY_CSRF_TOKEN` environment variables
+2. Saved local config in your OS user config directory
+3. Interactive first-run setup when both stdin and stdout are attached to a terminal
+4. Tokenless mode with a warning
+
+That means `npx -y perplexity-web-api-mcp` can be run once in a normal terminal to save auth locally, and future runs will reuse it automatically.
 
 ## Tokenless Mode
 
-The server can run **without any authentication tokens**. In this mode:
+The server can run **without any authentication**. In this mode:
 
-- Only `perplexity_search` (links only) and `perplexity_ask` (answer with sources) are available — `perplexity_research` and `perplexity_reason` require tokens.
+- Only `perplexity_search` (links only) and `perplexity_ask` (answer with sources) are available — `perplexity_research` and `perplexity_reason` require authenticated session access.
 - Both tools use the `turbo` model; `PERPLEXITY_ASK_MODEL` and `PERPLEXITY_REASON_MODEL` cannot be set (the server will throw an error if they are).
-- File attachments (`files` parameter) are unavailable — they require tokens.
+- File attachments (`files` parameter) are unavailable — they require authenticated session access.
 
-To use tokenless mode, simply omit `PERPLEXITY_SESSION_TOKEN` and `PERPLEXITY_CSRF_TOKEN` from your configuration.
+To use tokenless mode, omit `PERPLEXITY_SESSION_TOKEN` and `PERPLEXITY_CSRF_TOKEN` and do not save local auth. If the server starts without auth in a non-interactive environment, it will continue in tokenless mode and log a warning.
 
-For full access to all tools and model selection, provide both tokens as described in the [Configuration](#configuration) section below.
+For full access to all tools and model selection, provide both tokens or complete the first-run setup described in the [Configuration](#configuration) section below.
 
 ## Requirements
 
@@ -48,7 +59,7 @@ For full access to all tools and model selection, provide both tokens as describ
 
 ### Getting Your Tokens
 
-This server requires a Perplexity AI account. You need to extract two authentication tokens from your browser cookies:
+This server requires a Perplexity AI account. You need to copy two authentication tokens manually from your browser cookies:
 
 1. Log in to [perplexity.ai](https://www.perplexity.ai) in your browser
 2. Open Developer Tools (F12 or right-click → Inspect)
@@ -57,25 +68,60 @@ This server requires a Perplexity AI account. You need to extract two authentica
    - `__Secure-next-auth.session-token` → use as `PERPLEXITY_SESSION_TOKEN`
    - `next-auth.csrf-token` → use as `PERPLEXITY_CSRF_TOKEN`
 
+### Saved Local Config
+
+If you run `npx -y perplexity-web-api-mcp` in a normal interactive terminal with no auth configured, the binary offers a first-run setup wizard. It prompts for the session token and CSRF token, validates them by initializing the client, and only saves them after validation succeeds.
+
+Saved auth is stored as JSON in your OS user config directory:
+
+- macOS: `~/Library/Application Support/perplexity-web-api-mcp/config.json`
+- Linux: `~/.config/perplexity-web-api-mcp/config.json`
+- Windows: `%AppData%\perplexity-web-api-mcp\config.json`
+
+Delete that file manually if you want to remove the saved auth cache.
+
+If a previously saved session expires, the server now validates it during startup. Invalid or expired saved auth is removed automatically:
+
+- in an interactive terminal, the server falls through to the first-run setup prompt so you can save fresh tokens immediately
+- in a non-interactive MCP client, the server falls back to tokenless mode instead of failing startup
+
+If the first-run setup validates your tokens but cannot write the local config file, the current session still continues with the validated auth. You only need to rerun setup later if you want that auth to persist across future launches.
+
 ### Environment Variables
 
-- `PERPLEXITY_SESSION_TOKEN` (optional): Perplexity session token (`next-auth.session-token` cookie). Required for `perplexity_research`, `perplexity_reason`, and file attachments.
-- `PERPLEXITY_CSRF_TOKEN` (optional): Perplexity CSRF token (`next-auth.csrf-token` cookie). Required for `perplexity_research`, `perplexity_reason`, and file attachments.
-- `PERPLEXITY_ASK_MODEL` (optional, requires tokens): Model for `perplexity_ask`.
+Environment variables are still the highest-priority auth source.
+
+- `PERPLEXITY_SESSION_TOKEN` (optional, highest priority): Perplexity session token (`__Secure-next-auth.session-token` cookie from your browser). Required for `perplexity_research`, `perplexity_reason`, and file attachments when you are not using saved local auth.
+- `PERPLEXITY_CSRF_TOKEN` (optional, highest priority): Perplexity CSRF token (`next-auth.csrf-token` cookie). Required for `perplexity_research`, `perplexity_reason`, and file attachments when you are not using saved local auth.
+- `PERPLEXITY_ASK_MODEL` (optional, requires authenticated session access): Model for `perplexity_ask`.
   Valid values:
-    - `turbo` (default for tokenless)
+    - `turbo` (the implicit tokenless/default `perplexity_search` and `perplexity_ask` model)
     - `pro-auto` (default for authenticated)
     - `sonar`
     - `gpt-5.4`
     - `claude-4.6-sonnet`
     - `nemotron-3-super`
-- `PERPLEXITY_REASON_MODEL` (optional, requires tokens): Model for `perplexity_reason`.
+- `PERPLEXITY_REASON_MODEL` (optional, requires authenticated session access): Model for `perplexity_reason`.
   Valid values:
     - `gemini-3.1-pro` (default)
     - `gpt-5.4-thinking`
     - `claude-4.6-sonnet-thinking`
 - `PERPLEXITY_INCOGNITO` (optional, default: `true`): Whether requests should use Perplexity's incognito mode.
   Valid values: `true` or `false`
+- `MCP_TRANSPORT` (optional, default: `stdio`): Transport mode. Valid values are `stdio` and `streamable-http`. `streamable-http` requires building with the `streamable-http` cargo feature.
+- `MCP_HOST` (optional, default: `0.0.0.0`): Host/interface to bind when `MCP_TRANSPORT=streamable-http`.
+- `MCP_PORT` (optional, default: `8080`): TCP port to bind when `MCP_TRANSPORT=streamable-http`.
+
+When authentication cookies are provided, client startup validates them immediately by warming up `/api/auth/session`. Invalid or expired cookies fail startup instead of producing partial access later. For saved local auth, that validation also happens during auth resolution so stale cache entries can be discarded before the server decides whether to prompt interactively or fall back to tokenless mode. The configured client timeout is treated as the total budget for that warm-up, including reading the session payload.
+
+In tokenless mode, empty `PERPLEXITY_ASK_MODEL` / `PERPLEXITY_REASON_MODEL` values are ignored, but any non-empty model override is rejected because tokenless mode always uses the built-in free/default behavior.
+
+### First-Run Setup for Non-Interactive MCP Clients
+
+Many MCP clients start MCP servers non-interactively, so they cannot answer the first-run prompts. For those clients, either:
+
+1. set `PERPLEXITY_SESSION_TOKEN` and `PERPLEXITY_CSRF_TOKEN` directly in the client config, or
+2. run `npx -y perplexity-web-api-mcp` once in a normal terminal to save local auth first, then configure the client without auth env vars.
 
 ### Claude Code
 
@@ -159,6 +205,31 @@ codex mcp add perplexity --env PERPLEXITY_SESSION_TOKEN="your-session-token" --e
 
 Source build instructions, including optional cargo features, are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### Local Verification
+
+Before opening a PR or cutting a release, run:
+
+```bash
+cargo fmt --all
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo build --workspace --all-targets
+cargo test --workspace --lib
+```
+
+To validate the optional HTTP transport build:
+
+```bash
+cargo build -p perplexity-web-api-mcp --all-targets --features streamable-http
+```
+
+Live authenticated e2e coverage remains opt-in because it depends on real Perplexity session cookies:
+
+```bash
+PERPLEXITY_SESSION_TOKEN="..." \
+PERPLEXITY_CSRF_TOKEN="..." \
+cargo test -p perplexity-web-api --test integration -- --ignored --test-threads=1
+```
+
 ### Other MCP Clients
 
 Most clients can be manually configured to use the `mcpServers` wrapper in their configuration file (like Cursor). If your client doesn't work, check its documentation for the correct wrapper format.
@@ -198,7 +269,7 @@ Configure your MCP client to connect:
 | `MCP_HOST` | `0.0.0.0` | Host address to bind |
 | `MCP_PORT` | `8080` | Port to listen on |
 
-The [authentication tokens, model variables, and incognito flag](#configuration) described above work the same way in Docker.
+The [auth flow, model variables, and incognito flag](#configuration) described above work the same way in Docker.
 
 ## Available Tools
 
@@ -218,13 +289,13 @@ Quick web search using the `turbo` model. Returns only links, titles, and snippe
 
 ### `perplexity_ask`
 
-Ask Perplexity AI a question and get a comprehensive answer with source citations. By default uses the best model (Pro auto mode) when authentication tokens are provided, or `turbo` in tokenless mode. Can be configured via `PERPLEXITY_ASK_MODEL`.
+Ask Perplexity AI a question and get a comprehensive answer with source citations. By default uses the best model (Pro auto mode) when authenticated via environment variables or saved local config, or `turbo` in tokenless mode. Can be configured via `PERPLEXITY_ASK_MODEL`.
 
 **Best for:** Getting detailed answers to questions with web context.
 
 **Parameters:** Same as `perplexity_search`, plus:
 
-- `files` (optional, requires tokens): Array of file attachments for document analysis. See [File Attachments](#file-attachments).
+- `files` (optional, requires authenticated session access): Array of file attachments for document analysis. See [File Attachments](#file-attachments).
 
 ### `perplexity_reason`
 
@@ -244,7 +315,7 @@ Deep, comprehensive research using Perplexity's sonar-deep-research (`pplx_alpha
 
 ## File Attachments
 
-`perplexity_ask`, `perplexity_research`, and `perplexity_reason` accept an optional `files` parameter for document analysis. **Requires authentication tokens.**
+`perplexity_ask`, `perplexity_research`, and `perplexity_reason` accept an optional `files` parameter for document analysis. **Requires authenticated session access from environment variables or saved local setup.**
 
 Each entry in the `files` array must have:
 
