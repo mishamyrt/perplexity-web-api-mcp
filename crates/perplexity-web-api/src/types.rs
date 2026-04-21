@@ -1,4 +1,4 @@
-use crate::models::ModelPreference;
+use crate::models::{ComputerModel, ModelPreference};
 use crate::{ReasonModel, SearchModel};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ impl SearchMode {
             Self::Pro => SearchModel::ProAuto.api_preference().as_str(),
             Self::Reasoning => ReasonModel::Gemini31ProHigh.api_preference().as_str(),
             Self::DeepResearch => "pplx_alpha",
-            Self::Computer => "pplx_asi_opus_thinking",
+            Self::Computer => ComputerModel::Claude46OpusThinking.api_preference().as_str(),
             Self::Study => "pplx_study",
             Self::DocumentReview => "pplx_document_review",
         }
