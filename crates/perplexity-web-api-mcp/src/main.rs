@@ -2,7 +2,7 @@
 
 mod server;
 
-use perplexity_web_api::{AuthCookies, Client, ReasonModel, SearchModel};
+use perplexity_web_api::{AuthCookies, Client, ComputerModel, ReasonModel, SearchModel};
 use rmcp::{ServiceExt, transport::stdio};
 use std::{env, env::VarError};
 use tracing_subscriber::fmt;
@@ -110,32 +110,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tokenless = session_token.is_none() || csrf_token.is_none();
     let incognito = optional_bool_env("PERPLEXITY_INCOGNITO", true)?;
 
-    let (default_ask_model, default_reason_model) = if tokenless {
+    let (default_ask_model, default_reason_model, default_computer_model) = if tokenless {
         // In tokenless mode, model overrides are not supported.
-        if env::var("PERPLEXITY_ASK_MODEL").is_ok() {
-            return Err(std::io::Error::other(
-                "PERPLEXITY_ASK_MODEL cannot be used without authentication tokens.\n\n\
-                 To use model configuration, provide both:\n\
-                   PERPLEXITY_SESSION_TOKEN  - Perplexity session token\n\
-                   PERPLEXITY_CSRF_TOKEN     - Perplexity CSRF token",
-            )
-            .into());
+        for name in [
+            "PERPLEXITY_ASK_MODEL",
+            "PERPLEXITY_REASON_MODEL",
+            "PERPLEXITY_COMPUTER_MODEL",
+        ] {
+            if env::var(name).is_ok() {
+                return Err(std::io::Error::other(format!(
+                    "{name} cannot be used without authentication tokens.\n\n\
+                     To use model configuration, provide both:\n\
+                       PERPLEXITY_SESSION_TOKEN  - Perplexity session token\n\
+                       PERPLEXITY_CSRF_TOKEN     - Perplexity CSRF token",
+                ))
+                .into());
+            }
         }
-        if env::var("PERPLEXITY_REASON_MODEL").is_ok() {
-            return Err(std::io::Error::other(
-                "PERPLEXITY_REASON_MODEL cannot be used without authentication tokens.\n\n\
-                 To use model configuration, provide both:\n\
-                   PERPLEXITY_SESSION_TOKEN  - Perplexity session token\n\
-                   PERPLEXITY_CSRF_TOKEN     - Perplexity CSRF token",
-            )
-            .into());
-        }
-        (Some(SearchModel::Turbo), None)
+        (Some(SearchModel::Turbo), None, None)
     } else {
         let ask = optional_model_env::<SearchModel>("PERPLEXITY_ASK_MODEL")?
             .unwrap_or(SearchModel::ProAuto);
         let reason = optional_model_env::<ReasonModel>("PERPLEXITY_REASON_MODEL")?;
-        (Some(ask), reason)
+        let computer = optional_model_env::<ComputerModel>("PERPLEXITY_COMPUTER_MODEL")?;
+        (Some(ask), reason, computer)
     };
 
     if tokenless {
@@ -167,6 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client,
         default_ask_model,
         default_reason_model,
+        default_computer_model,
         tokenless,
         incognito,
     );

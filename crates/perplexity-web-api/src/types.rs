@@ -18,6 +18,8 @@ pub enum SearchMode {
     Reasoning,
     /// Extended research capabilities.
     DeepResearch,
+    /// Agentic execution with tool use.
+    Computer,
 }
 
 impl SearchMode {
@@ -26,15 +28,29 @@ impl SearchMode {
         match self {
             Self::Auto => SearchModel::Turbo.api_preference().as_str(),
             Self::Pro => SearchModel::ProAuto.api_preference().as_str(),
-            Self::Reasoning => ReasonModel::Gemini31Pro.api_preference().as_str(),
+            Self::Reasoning => ReasonModel::Gemini31ProHigh.api_preference().as_str(),
             Self::DeepResearch => DEEP_RESEARCH_MODEL_PREFERENCE,
+            Self::Computer => "pplx_asi_opus_thinking",
+        }
+    }
+
+    /// Returns the `query_source` value for the API payload.
+    pub const fn query_source(&self) -> &'static str {
+        match self {
+            Self::Computer => "computer",
+            _ => "home",
         }
     }
 }
 
 /// Information source for search queries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+///
+/// Includes standard search sources (Web, Scholar, Social) and connected
+/// service connectors (Google Drive, Calendar, Notion, GitHub, etc.).
+/// Use [`Source::Custom`] for user-specific remote MCP connectors.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum Source {
+    // ── Standard search sources ──
     /// General web search (default).
     #[default]
     Web,
@@ -42,16 +58,97 @@ pub enum Source {
     Scholar,
     /// Social media content.
     Social,
+
+    // ── Cloud storage connectors ──
+    /// Google Drive.
+    GoogleDrive,
+    /// Microsoft OneDrive.
+    OneDrive,
+    /// Microsoft SharePoint.
+    SharePoint,
+    /// Dropbox.
+    Dropbox,
+    /// Box.
+    Box,
+
+    // ── Productivity connectors ──
+    /// Google Calendar.
+    GoogleCalendar,
+    /// Microsoft Outlook (email + calendar).
+    Outlook,
+    /// Notion.
+    Notion,
+    /// GitHub.
+    GitHub,
+    /// Linear.
+    Linear,
+    /// Asana.
+    Asana,
+    /// Slack.
+    Slack,
+    /// Jira.
+    Jira,
+    /// Confluence.
+    Confluence,
+    /// Microsoft Teams.
+    MicrosoftTeams,
+
+    // ── Third-party / premium connectors ──
+    /// HubSpot.
+    HubSpot,
+    /// Monday.com.
+    Monday,
+    /// Supabase.
+    Supabase,
+    /// Vercel.
+    Vercel,
+    /// Sentry.
+    Sentry,
+    /// HuggingFace.
+    HuggingFace,
+    /// Cloudinary.
+    Cloudinary,
+
+    /// A connector not in the known set (e.g. user-added remote MCP).
+    Custom(String),
 }
 
 impl Source {
-    /// Returns the string representation used by the API.
-    pub fn as_str(&self) -> &'static str {
+    /// Returns the API string for this source.
+    pub fn as_str(&self) -> &str {
         match self {
             Self::Web => "web",
             Self::Scholar => "scholar",
             Self::Social => "social",
+            Self::GoogleDrive => "google_drive",
+            Self::OneDrive => "onedrive",
+            Self::SharePoint => "sharepoint",
+            Self::Dropbox => "dropbox",
+            Self::Box => "box",
+            Self::GoogleCalendar => "gcal",
+            Self::Outlook => "outlook",
+            Self::Notion => "notion_mcp",
+            Self::GitHub => "github_mcp_direct",
+            Self::Linear => "linear_alt",
+            Self::Asana => "asana_mcp_merge",
+            Self::Slack => "slack_direct",
+            Self::Jira => "jira_mcp_merge",
+            Self::Confluence => "confluence_mcp_merge",
+            Self::MicrosoftTeams => "microsoft_teams_mcp_merge",
+            Self::HubSpot => "hubspot",
+            Self::Monday => "monday",
+            Self::Supabase => "supabase",
+            Self::Vercel => "vercel",
+            Self::Sentry => "sentry",
+            Self::HuggingFace => "hugging_face",
+            Self::Cloudinary => "cloudinary",
+            Self::Custom(s) => s.as_str(),
         }
+    }
+
+    /// Returns `true` for sources that work without authentication cookies.
+    pub fn is_public(&self) -> bool {
+        matches!(self, Self::Web | Self::Scholar | Self::Social)
     }
 }
 
@@ -69,7 +166,29 @@ impl FromStr for Source {
             "web" => Ok(Self::Web),
             "scholar" => Ok(Self::Scholar),
             "social" => Ok(Self::Social),
-            _ => Err(format!("unknown source '{s}', expected one of: web, scholar, social")),
+            "google_drive" => Ok(Self::GoogleDrive),
+            "onedrive" => Ok(Self::OneDrive),
+            "sharepoint" => Ok(Self::SharePoint),
+            "dropbox" => Ok(Self::Dropbox),
+            "box" => Ok(Self::Box),
+            "gcal" => Ok(Self::GoogleCalendar),
+            "outlook" => Ok(Self::Outlook),
+            "notion_mcp" => Ok(Self::Notion),
+            "github_mcp_direct" => Ok(Self::GitHub),
+            "linear_alt" => Ok(Self::Linear),
+            "asana_mcp_merge" => Ok(Self::Asana),
+            "slack_direct" => Ok(Self::Slack),
+            "jira_mcp_merge" => Ok(Self::Jira),
+            "confluence_mcp_merge" => Ok(Self::Confluence),
+            "microsoft_teams_mcp_merge" => Ok(Self::MicrosoftTeams),
+            "hubspot" => Ok(Self::HubSpot),
+            "monday" => Ok(Self::Monday),
+            "supabase" => Ok(Self::Supabase),
+            "vercel" => Ok(Self::Vercel),
+            "sentry" => Ok(Self::Sentry),
+            "hugging_face" => Ok(Self::HuggingFace),
+            "cloudinary" => Ok(Self::Cloudinary),
+            other => Ok(Self::Custom(other.to_owned())),
         }
     }
 }
@@ -272,7 +391,8 @@ pub(crate) struct AskParams<'a> {
     pub mode: &'static str,
     pub model_preference: &'static str,
     pub source: &'static str,
-    pub sources: Vec<&'static str>,
+    pub sources: Vec<String>,
+    pub query_source: &'static str,
     pub version: &'static str,
 }
 

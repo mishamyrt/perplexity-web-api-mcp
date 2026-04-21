@@ -178,9 +178,10 @@ impl Client {
 
         let mode_str = match request.mode {
             SearchMode::Auto => API_MODE_CONCISE,
-            SearchMode::Pro | SearchMode::Reasoning | SearchMode::DeepResearch => {
-                API_MODE_COPILOT
-            }
+            SearchMode::Pro
+            | SearchMode::Reasoning
+            | SearchMode::DeepResearch
+            | SearchMode::Computer => API_MODE_COPILOT,
         };
 
         let model_pref = request
@@ -188,8 +189,8 @@ impl Client {
             .map(|preference| preference.as_str())
             .unwrap_or_else(|| request.mode.default_preference());
 
-        let sources_str: Vec<&'static str> =
-            request.sources.iter().map(|s| s.as_str()).collect();
+        let sources_str: Vec<String> =
+            request.sources.iter().map(|s| s.as_str().to_owned()).collect();
 
         let payload = AskPayload {
             query_str: &request.query,
@@ -204,6 +205,7 @@ impl Client {
                 model_preference: model_pref,
                 source: "default",
                 sources: sources_str,
+                query_source: request.mode.query_source(),
                 version: API_VERSION,
             },
         };
@@ -242,6 +244,11 @@ impl Client {
     fn validate_request(&self, request: &SearchRequest) -> Result<()> {
         if !request.files.is_empty() && !self.has_cookies {
             return Err(Error::FileUploadRequiresAuth);
+        }
+
+        let needs_auth = request.sources.iter().any(|s| !s.is_public());
+        if needs_auth && !self.has_cookies {
+            return Err(Error::ConnectorRequiresAuth);
         }
 
         Ok(())
