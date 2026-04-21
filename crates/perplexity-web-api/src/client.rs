@@ -181,7 +181,9 @@ impl Client {
             SearchMode::Pro
             | SearchMode::Reasoning
             | SearchMode::DeepResearch
-            | SearchMode::Computer => API_MODE_COPILOT,
+            | SearchMode::Computer
+            | SearchMode::Study
+            | SearchMode::DocumentReview => API_MODE_COPILOT,
         };
 
         let model_pref = request

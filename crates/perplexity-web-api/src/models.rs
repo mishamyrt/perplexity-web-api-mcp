@@ -1,20 +1,6 @@
 use std::fmt;
 use std::str::FromStr;
 
-// ── Perplexity special-mode preference constants ──
-// These are mode indicators or internal routing strings, not user-selectable
-// model backends. They are used as `model_preference` values for specific
-// Perplexity features.
-
-/// Perplexity business assistant mode.
-pub const BUSINESS_ASSISTANT_PREFERENCE: &str = "pplx_business_assistant";
-
-/// Perplexity document review mode.
-pub const DOCUMENT_REVIEW_PREFERENCE: &str = "pplx_document_review";
-
-/// Perplexity study mode.
-pub const STUDY_PREFERENCE: &str = "pplx_study";
-
 // ── Model preference wrapper ──
 
 /// A validated model preference string sent to the Perplexity API payload.

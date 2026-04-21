@@ -436,6 +436,61 @@ impl PerplexityServer {
                 .await?,
         )
     }
+
+    /// Study mode — tutor-style explanations with step-by-step teaching.
+    ///
+    /// Best for: learning new concepts, guided explanations, and educational
+    /// breakdowns of complex topics.
+    #[tool(
+        name = "perplexity_study",
+        description = "Answer a question in tutor-style study mode with step-by-step, \
+                pedagogical explanations. \
+                Best for: learning new concepts, guided walkthroughs, test prep, \
+                and educational breakdowns. \
+                Requires authentication tokens. \
+                Supports optional file attachments via the `files` parameter.",
+        annotations(
+            title = "Study Mode",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
+    pub async fn perplexity_study(
+        &self,
+        Parameters(params): Parameters<PerplexityRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        to_json_tool_result(&self.do_search(params, SearchMode::Study, None, true).await?)
+    }
+
+    /// Document review mode — detailed analysis of uploaded documents.
+    ///
+    /// Best for: extracting findings, summarizing long documents, and reviewing
+    /// contracts, papers, or reports with uploaded files.
+    #[tool(
+        name = "perplexity_document_review",
+        description = "Perform detailed analysis and review of uploaded documents. \
+                Best for: contract review, paper analysis, long-document summarization, \
+                and extracting structured findings from PDFs or text files. \
+                Requires authentication tokens. \
+                Attach the document(s) via the `files` parameter (required for best results).",
+        annotations(
+            title = "Document Review",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
+    pub async fn perplexity_document_review(
+        &self,
+        Parameters(params): Parameters<PerplexityRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        to_json_tool_result(
+            &self.do_search(params, SearchMode::DocumentReview, None, true).await?,
+        )
+    }
 }
 
 #[tool_handler]
@@ -452,6 +507,8 @@ impl ServerHandler for PerplexityServer {
                 " Use perplexity_research for in-depth multi-source investigation (slow, 60s+). \
                 Use perplexity_reason for complex analysis requiring step-by-step logic. \
                 Use perplexity_computer for agentic tasks with tool use and connected services. \
+                Use perplexity_study for tutor-style step-by-step explanations. \
+                Use perplexity_document_review for detailed analysis of uploaded documents. \
                 All tools accept a `sources` parameter for connector-scoped queries: \
                 standard sources (web, scholar, social) work without auth; \
                 connectors (google_drive, gcal, outlook, notion_mcp, github_mcp_direct, etc.) \

@@ -112,12 +112,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (default_ask_model, default_reason_model, default_computer_model) = if tokenless {
         // In tokenless mode, model overrides are not supported.
+        // Use the same trim-and-check-empty semantics as optional_env/optional_model_env
+        // so that setting an empty/whitespace-only value is treated as "unset".
         for name in [
             "PERPLEXITY_ASK_MODEL",
             "PERPLEXITY_REASON_MODEL",
             "PERPLEXITY_COMPUTER_MODEL",
         ] {
-            if env::var(name).is_ok() {
+            if optional_env(name)?.is_some() {
                 return Err(std::io::Error::other(format!(
                     "{name} cannot be used without authentication tokens.\n\n\
                      To use model configuration, provide both:\n\

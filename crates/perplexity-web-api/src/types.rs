@@ -1,4 +1,4 @@
-use crate::models::{DEEP_RESEARCH_MODEL_PREFERENCE, ModelPreference};
+use crate::models::ModelPreference;
 use crate::{ReasonModel, SearchModel};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,10 @@ pub enum SearchMode {
     DeepResearch,
     /// Agentic execution with tool use.
     Computer,
+    /// Study mode — tutor-style explanations.
+    Study,
+    /// Document review mode — detailed analysis of uploaded documents.
+    DocumentReview,
 }
 
 impl SearchMode {
@@ -29,8 +33,10 @@ impl SearchMode {
             Self::Auto => SearchModel::Turbo.api_preference().as_str(),
             Self::Pro => SearchModel::ProAuto.api_preference().as_str(),
             Self::Reasoning => ReasonModel::Gemini31ProHigh.api_preference().as_str(),
-            Self::DeepResearch => DEEP_RESEARCH_MODEL_PREFERENCE,
+            Self::DeepResearch => "pplx_alpha",
             Self::Computer => "pplx_asi_opus_thinking",
+            Self::Study => "pplx_study",
+            Self::DocumentReview => "pplx_document_review",
         }
     }
 

@@ -101,11 +101,7 @@ mod upload;
 pub use auth::{AuthCookies, CSRF_TOKEN_COOKIE_NAME, SESSION_TOKEN_COOKIE_NAME};
 pub use client::{Client, ClientBuilder};
 pub use error::{Error, Result};
-pub use models::{
-    ComputerModel, ModelPreference, ReasonModel, SearchModel,
-    // Special Perplexity mode preference constants
-    BUSINESS_ASSISTANT_PREFERENCE, DOCUMENT_REVIEW_PREFERENCE, STUDY_PREFERENCE,
-};
+pub use models::{ComputerModel, ModelPreference, ReasonModel, SearchModel};
 pub use types::{
     FollowUpContext, SearchEvent, SearchMode, SearchRequest, SearchResponse, SearchWebResult,
     Source, UploadFile,
