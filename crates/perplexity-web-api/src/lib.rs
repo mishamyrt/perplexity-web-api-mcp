@@ -73,12 +73,20 @@
 //! - [`SearchMode::Pro`] - Enhanced mode with access to premium models
 //! - [`SearchMode::Reasoning`] - Chain-of-thought reasoning models
 //! - [`SearchMode::DeepResearch`] - Extended research capabilities
+//! - [`SearchMode::Computer`] - Perplexity Computer agentic execution
 //!
 //! # Sources
 //!
+//! Standard (no auth required):
 //! - [`Source::Web`] - General web search (default)
 //! - [`Source::Scholar`] - Academic papers and research
 //! - [`Source::Social`] - Social media content
+//!
+//! Connectors (require authentication and connected accounts):
+//! - [`Source::GoogleDrive`], [`Source::GoogleCalendar`], [`Source::Outlook`]
+//! - [`Source::Notion`], [`Source::GitHub`], [`Source::Slack`], [`Source::Linear`]
+//! - [`Source::Jira`], [`Source::Confluence`], [`Source::MicrosoftTeams`]
+//! - [`Source::Custom`] - User-specific remote MCP connectors
 
 mod auth;
 mod client;
@@ -93,7 +101,7 @@ mod upload;
 pub use auth::{AuthCookies, CSRF_TOKEN_COOKIE_NAME, SESSION_TOKEN_COOKIE_NAME};
 pub use client::{Client, ClientBuilder};
 pub use error::{Error, Result};
-pub use models::{ModelPreference, ReasonModel, SearchModel};
+pub use models::{ComputerModel, ModelPreference, ReasonModel, SearchModel};
 pub use types::{
     FollowUpContext, SearchEvent, SearchMode, SearchRequest, SearchResponse, SearchWebResult,
     Source, UploadFile,

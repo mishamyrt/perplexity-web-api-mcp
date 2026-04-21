@@ -1,6 +1,6 @@
 use base64::Engine as _;
 use perplexity_web_api::{
-    Client, ModelPreference, ReasonModel, SearchMode, SearchModel, SearchRequest,
+    Client, ComputerModel, ModelPreference, ReasonModel, SearchMode, SearchModel, SearchRequest,
     SearchWebResult, Source, UploadFile,
 };
 use rmcp::{
@@ -35,7 +35,12 @@ pub struct PerplexitySearchRequest {
     /// The search query or question to ask.
     pub query: String,
 
-    /// Information sources to search. Valid values: "web", "scholar", "social".
+    /// Information sources to search.
+    /// Standard (no auth): "web", "scholar", "social".
+    /// Connectors (require auth + connected account): "google_drive", "gcal",
+    /// "outlook", "notion_mcp", "github_mcp_direct", "linear_alt",
+    /// "slack_direct", "jira_mcp_merge", "confluence_mcp_merge",
+    /// "microsoft_teams_mcp_merge", "onedrive", "sharepoint", "dropbox", "box".
     /// Defaults to ["web"] if not specified.
     #[serde(default)]
     pub sources: Option<Vec<String>>,
@@ -51,7 +56,12 @@ pub struct PerplexityRequest {
     /// The search query or question to ask.
     pub query: String,
 
-    /// Information sources to search. Valid values: "web", "scholar", "social".
+    /// Information sources to search.
+    /// Standard (no auth): "web", "scholar", "social".
+    /// Connectors (require auth + connected account): "google_drive", "gcal",
+    /// "outlook", "notion_mcp", "github_mcp_direct", "linear_alt",
+    /// "slack_direct", "jira_mcp_merge", "confluence_mcp_merge",
+    /// "microsoft_teams_mcp_merge", "onedrive", "sharepoint", "dropbox", "box".
     /// Defaults to ["web"] if not specified.
     #[serde(default)]
     pub sources: Option<Vec<String>>,
@@ -109,6 +119,7 @@ pub struct PerplexityServer {
     client: Client,
     ask_model: Option<SearchModel>,
     reason_model: Option<ReasonModel>,
+    computer_model: Option<ComputerModel>,
     tokenless: bool,
     incognito: bool,
 }
@@ -131,10 +142,11 @@ impl PerplexityServer {
         client: Client,
         ask_model: Option<SearchModel>,
         reason_model: Option<ReasonModel>,
+        computer_model: Option<ComputerModel>,
         tokenless: bool,
         incognito: bool,
     ) -> Self {
-        Self { client, ask_model, reason_model, tokenless, incognito }
+        Self { client, ask_model, reason_model, computer_model, tokenless, incognito }
     }
 
     /// Converts a `FileAttachment` from tool parameters into an `UploadFile`.
@@ -387,6 +399,98 @@ impl PerplexityServer {
                 .await?,
         )
     }
+
+    /// Perplexity Computer, an agentic AI that can browse the web, run code, and use connected services.
+    ///
+    /// Best for: Tasks that require the LLM to take actions, browse the web,
+    /// run code, or interact with connected services.
+    #[tool(
+        name = "perplexity_computer",
+        description = "Execute a task using Perplexity Computer, an agentic AI that can browse the web, \
+                run code, and use connected services. \
+                Best for: multi-step tasks, data analysis with connectors (Google Drive, Calendar, Notion, GitHub), \
+                web automation, and tasks requiring tool use. \
+                Requires authentication tokens. Significantly slower than other tools (30+ seconds). \
+                Sources can include connected services like google_drive, gcal, notion_mcp, github_mcp_direct, etc. \
+                Supports optional file attachments via the `files` parameter.",
+        annotations(
+            title = "Perplexity Computer",
+            read_only_hint = false,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
+    pub async fn perplexity_computer(
+        &self,
+        Parameters(params): Parameters<PerplexityRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        to_json_tool_result(
+            &self
+                .do_search(
+                    params,
+                    SearchMode::Computer,
+                    self.computer_model.map(ModelPreference::from),
+                    true,
+                )
+                .await?,
+        )
+    }
+
+    /// Study mode — tutor-style explanations with step-by-step teaching.
+    ///
+    /// Best for: learning new concepts, guided explanations, and educational
+    /// breakdowns of complex topics.
+    #[tool(
+        name = "perplexity_study",
+        description = "Answer a question in tutor-style study mode with step-by-step, \
+                pedagogical explanations. \
+                Best for: learning new concepts, guided walkthroughs, test prep, \
+                and educational breakdowns. \
+                Requires authentication tokens. \
+                Supports optional file attachments via the `files` parameter.",
+        annotations(
+            title = "Study Mode",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
+    pub async fn perplexity_study(
+        &self,
+        Parameters(params): Parameters<PerplexityRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        to_json_tool_result(&self.do_search(params, SearchMode::Study, None, true).await?)
+    }
+
+    /// Document review mode — detailed analysis of uploaded documents.
+    ///
+    /// Best for: extracting findings, summarizing long documents, and reviewing
+    /// contracts, papers, or reports with uploaded files.
+    #[tool(
+        name = "perplexity_document_review",
+        description = "Perform detailed analysis and review of uploaded documents. \
+                Best for: contract review, paper analysis, long-document summarization, \
+                and extracting structured findings from PDFs or text files. \
+                Requires authentication tokens. \
+                Attach the document(s) via the `files` parameter (required for best results).",
+        annotations(
+            title = "Document Review",
+            read_only_hint = true,
+            open_world_hint = true,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
+    pub async fn perplexity_document_review(
+        &self,
+        Parameters(params): Parameters<PerplexityRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        to_json_tool_result(
+            &self.do_search(params, SearchMode::DocumentReview, None, true).await?,
+        )
+    }
 }
 
 #[tool_handler]
@@ -402,6 +506,13 @@ impl ServerHandler for PerplexityServer {
             instructions.push_str(
                 " Use perplexity_research for in-depth multi-source investigation (slow, 60s+). \
                 Use perplexity_reason for complex analysis requiring step-by-step logic. \
+                Use perplexity_computer for agentic tasks with tool use and connected services. \
+                Use perplexity_study for tutor-style step-by-step explanations. \
+                Use perplexity_document_review for detailed analysis of uploaded documents. \
+                All tools accept a `sources` parameter for connector-scoped queries: \
+                standard sources (web, scholar, social) work without auth; \
+                connectors (google_drive, gcal, outlook, notion_mcp, github_mcp_direct, etc.) \
+                require authentication and a connected account. \
                 All tools support an optional `files` parameter for document analysis: \
                 pass an array of objects each with `filename` and either `text` (plain-text content) \
                 or `data` (base64-encoded binary content, e.g. for PDFs).",

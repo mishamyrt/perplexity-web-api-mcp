@@ -32,6 +32,10 @@ pub enum Error {
     #[error("File uploads require authentication cookies")]
     FileUploadRequiresAuth,
 
+    /// Connector sources require authentication cookies.
+    #[error("Connector sources (e.g. google_drive, gcal, notion_mcp) require authentication cookies")]
+    ConnectorRequiresAuth,
+
     /// Failed to get upload URL.
     #[error("Failed to get upload URL: {0}")]
     UploadUrlFailed(#[source] rquest::Error),

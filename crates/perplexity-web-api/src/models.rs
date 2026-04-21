@@ -1,7 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-pub const DEEP_RESEARCH_MODEL_PREFERENCE: &str = "pplx_alpha";
+// ── Model preference wrapper ──
 
 /// A validated model preference string sent to the Perplexity API payload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,21 +90,47 @@ macro_rules! define_model_enum {
 }
 
 define_model_enum! {
-    /// Model selection for `perplexity_search`.
+    /// Model selection for `perplexity_search` and `perplexity_ask`.
+    ///
+    /// These are the non-thinking model backends available in Perplexity's
+    /// auto and pro (copilot) search modes.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum SearchModel {
-        /// Default (auto) free model
+        // ── Perplexity built-in ──
+        /// Default (auto) free model.
         Turbo => { name: "turbo", preference: "turbo" },
         /// Pro auto (best) model.
         ProAuto => { name: "pro-auto", preference: "pplx_pro" },
+        /// Pro upgraded model.
+        ProUpgraded => { name: "pro-upgraded", preference: "pplx_pro_upgraded" },
         /// Sonar model.
         Sonar => { name: "sonar", preference: "experimental" },
-        /// GPT-5.4 model.
-        Gpt54 => { name: "gpt-5.4", preference: "gpt54" },
-        /// Claude 4.6 Sonnet model.
-        Claude46Sonnet => { name: "claude-4.6-sonnet", preference: "claude46sonnet" },
-        /// Nemotron 3 Super
+
+        // ── NVIDIA ──
+        /// Nemotron 3 Super.
         Nemotron3Super => { name: "nemotron-3-super", preference: "nv_nemotron_3_super" },
+
+        // ── Claude models ──
+        /// Claude 4.6 Sonnet.
+        Claude46Sonnet => { name: "claude-4.6-sonnet", preference: "claude46sonnet" },
+        /// Claude 4.6 Opus.
+        Claude46Opus => { name: "claude-4.6-opus", preference: "claude46opus" },
+
+        // ── Gemini models ──
+        /// Gemini 3.0 Flash.
+        Gemini30Flash => { name: "gemini-3.0-flash", preference: "gemini30flash" },
+        /// Gemini 3.0 Pro.
+        Gemini30Pro => { name: "gemini-3.0-pro", preference: "gemini30pro" },
+
+        // ── GPT models ──
+        /// GPT-5 Pro.
+        Gpt5Pro => { name: "gpt-5-pro", preference: "gpt5_pro" },
+        /// GPT-5.3 Codex.
+        Gpt53Codex => { name: "gpt-5.3-codex", preference: "gpt53codex" },
+        /// GPT-5.4.
+        Gpt54 => { name: "gpt-5.4", preference: "gpt54" },
+        /// GPT-5.4 Mini.
+        Gpt54Mini => { name: "gpt-5.4-mini", preference: "gpt54mini" },
     }
 }
 
@@ -112,11 +138,61 @@ define_model_enum! {
     /// Model selection for `perplexity_reason`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum ReasonModel {
-        /// Gemini 3.1 Pro model.
-        Gemini31Pro => { name: "gemini-3.1-pro", preference: "gemini31pro_high" },
-        /// GPT-5.4 with thinking capabilities.
-        Gpt54Thinking => { name: "gpt-5.4-thinking", preference: "gpt54_thinking" },
-        /// Claude 4.6 Sonnet with thinking capabilities.
+        // ── Claude thinking models ──
+        /// Claude 4.6 Sonnet with thinking.
         Claude46SonnetThinking => { name: "claude-4.6-sonnet-thinking", preference: "claude46sonnetthinking" },
+        /// Claude 4.6 Opus with thinking.
+        Claude46OpusThinking => { name: "claude-4.6-opus-thinking", preference: "claude46opusthinking" },
+
+        // ── Gemini reasoning models ──
+        /// Gemini 3.0 Flash High.
+        Gemini30FlashHigh => { name: "gemini-3.0-flash-high", preference: "gemini30flash_high" },
+        /// Gemini 3.1 Pro High.
+        Gemini31ProHigh => { name: "gemini-3.1-pro", preference: "gemini31pro_high" },
+
+        // ── GPT thinking models ──
+        /// GPT-5 with thinking.
+        Gpt5Thinking => { name: "gpt-5-thinking", preference: "gpt5_thinking" },
+        /// GPT-5.1 with thinking.
+        Gpt51Thinking => { name: "gpt-5.1-thinking", preference: "gpt51_thinking" },
+        /// GPT-5.2 with thinking.
+        Gpt52Thinking => { name: "gpt-5.2-thinking", preference: "gpt52_thinking" },
+        /// GPT-5.4 with thinking.
+        Gpt54Thinking => { name: "gpt-5.4-thinking", preference: "gpt54_thinking" },
+    }
+}
+
+define_model_enum! {
+    /// Model selection for `perplexity_computer` (ASI agentic mode).
+    ///
+    /// These are the model backends available for Perplexity Computer,
+    /// all routed through the `pplx_asi_*` preference namespace.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum ComputerModel {
+        // ── Perplexity ASI base ──
+        /// ASI default model.
+        Asi => { name: "asi", preference: "pplx_asi" },
+        /// ASI Beta.
+        AsiBeta => { name: "asi-beta", preference: "pplx_asi_beta" },
+
+        // ── Claude ASI backends ──
+        /// Claude 4.6 Sonnet with thinking.
+        Claude46SonnetThinking => { name: "claude-4.6-sonnet-thinking", preference: "pplx_asi_sonnet_thinking" },
+        /// Claude 4.6 Sonnet without thinking.
+        Claude46Sonnet => { name: "claude-4.6-sonnet", preference: "pplx_asi_sonnet" },
+        /// Claude 4.6 Opus with thinking (default).
+        Claude46OpusThinking => { name: "claude-4.6-opus-thinking", preference: "pplx_asi_opus_thinking" },
+        /// Claude 4.6 Opus without thinking.
+        Claude46Opus => { name: "claude-4.6-opus", preference: "pplx_asi_opus" },
+
+        // ── GPT ASI backend ──
+        /// GPT-5.4.
+        Gpt54 => { name: "gpt-5.4", preference: "pplx_asi_gpt54" },
+
+        // ── Other ASI backends ──
+        /// Kimi.
+        Kimi => { name: "kimi", preference: "pplx_asi_kimi" },
+        /// Qwen.
+        Qwen => { name: "qwen", preference: "pplx_asi_qwen" },
     }
 }
