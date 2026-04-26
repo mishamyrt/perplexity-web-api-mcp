@@ -135,6 +135,9 @@ pub struct SearchRequest {
     pub follow_up: Option<FollowUpContext>,
     /// Whether to enable incognito mode.
     pub incognito: bool,
+    /// Optional collection UUID to scope the search to a Perplexity Space.
+    /// When set, the search will appear in the Space's history and apply the Space's AI instructions.
+    pub collection_uuid: Option<String>,
 }
 
 impl SearchRequest {
@@ -149,6 +152,7 @@ impl SearchRequest {
             language: "en-US".to_string(),
             follow_up: None,
             incognito: false,
+            collection_uuid: None,
         }
     }
 
@@ -191,6 +195,12 @@ impl SearchRequest {
     /// Enables or disables incognito mode.
     pub fn incognito(mut self, incognito: bool) -> Self {
         self.incognito = incognito;
+        self
+    }
+
+    /// Scopes this search to a Perplexity Space by collection UUID.
+    pub fn collection_uuid(mut self, uuid: impl Into<String>) -> Self {
+        self.collection_uuid = Some(uuid.into());
         self
     }
 }
@@ -274,6 +284,12 @@ pub(crate) struct AskParams<'a> {
     pub source: &'static str,
     pub sources: Vec<&'static str>,
     pub version: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_collection_uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub query_source: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_thread_access_level: Option<i32>,
 }
 
 #[derive(Serialize)]

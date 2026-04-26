@@ -111,6 +111,7 @@ pub struct PerplexityServer {
     reason_model: Option<ReasonModel>,
     tokenless: bool,
     incognito: bool,
+    collection_uuid: Option<String>,
 }
 
 fn to_json_tool_result(value: &impl Serialize) -> Result<CallToolResult, McpError> {
@@ -133,8 +134,9 @@ impl PerplexityServer {
         reason_model: Option<ReasonModel>,
         tokenless: bool,
         incognito: bool,
+        collection_uuid: Option<String>,
     ) -> Self {
-        Self { client, ask_model, reason_model, tokenless, incognito }
+        Self { client, ask_model, reason_model, tokenless, incognito, collection_uuid }
     }
 
     /// Converts a `FileAttachment` from tool parameters into an `UploadFile`.
@@ -220,6 +222,9 @@ impl PerplexityServer {
 
         let mut request =
             SearchRequest::new(&params.query).mode(effective_mode).incognito(self.incognito);
+        if let Some(ref uuid) = self.collection_uuid {
+            request = request.collection_uuid(uuid.clone());
+        }
 
         if let Some(model_preference) = model_preference {
             request = request.model(model_preference);
